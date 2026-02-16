@@ -79,6 +79,18 @@ const RESOURCES = [
     description: "Deteccion de primer usuario, resolucion de sesion",
     file: "knowledge/business-rules/05-admin-setup.md",
   },
+  {
+    uri: "sajarubox://business/membership-plans",
+    name: "Reglas: Catalogo de planes",
+    description: "Tipos de plan (time_based, visit_based, mixed), campos, reglas de negocio",
+    file: "knowledge/business-rules/06-membership-plans.md",
+  },
+  {
+    uri: "sajarubox://business/membership-assignments",
+    name: "Reglas: Asignaciones de membresia",
+    description: "Snapshot inmutable, check-in, renovacion, vencimiento, planes familiares",
+    file: "knowledge/business-rules/07-membership-assignments.md",
+  },
 
   // Arquitectura iOS (para IA)
   {
@@ -210,6 +222,8 @@ const TOPIC_MAP: Record<string, string | string[]> = {
   memberships: "knowledge/business-rules/03-membership-management.md",
   members: "knowledge/business-rules/04-member-registration.md",
   "admin-setup": "knowledge/business-rules/05-admin-setup.md",
+  "membership-plans": "knowledge/business-rules/06-membership-plans.md",
+  "membership-assignments": "knowledge/business-rules/07-membership-assignments.md",
   // iOS arquitectura
   "ios-structure": "knowledge/ios-architecture/01-project-structure.md",
   "ios-mvvm": "knowledge/ios-architecture/02-mvvm-pattern.md",
@@ -230,6 +244,8 @@ const TOPIC_MAP: Record<string, string | string[]> = {
     "knowledge/business-rules/03-membership-management.md",
     "knowledge/business-rules/04-member-registration.md",
     "knowledge/business-rules/05-admin-setup.md",
+    "knowledge/business-rules/06-membership-plans.md",
+    "knowledge/business-rules/07-membership-assignments.md",
   ],
   "all-ios-arch": [
     "knowledge/ios-architecture/01-project-structure.md",
@@ -251,7 +267,7 @@ const TOPIC_MAP: Record<string, string | string[]> = {
 // ── Servidor MCP ──────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: "sajarubox-mcp", version: "1.1.0" },
+  { name: "sajarubox-mcp", version: "1.2.0" },
   { capabilities: { resources: {}, tools: {} } }
 );
 
@@ -282,7 +298,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "get_context",
       description:
-        "Obtiene documentacion de SajaruBox por tema. Topics disponibles: schema, roles, rules, platforms, sprint, authentication, user-roles, memberships, members, admin-setup, ios-structure, ios-mvvm, ios-di, ios-navigation, ios-design-system, ios-sync, ios-firestore, ios-auth, ios-session, ios-new-module, ios-theming, all-business, all-ios-arch, all-ios-impl",
+        "Obtiene documentacion de SajaruBox por tema. Topics disponibles: schema, roles, rules, platforms, sprint, authentication, user-roles, memberships, members, admin-setup, membership-plans, membership-assignments, ios-structure, ios-mvvm, ios-di, ios-navigation, ios-design-system, ios-sync, ios-firestore, ios-auth, ios-session, ios-new-module, ios-theming, all-business, all-ios-arch, all-ios-impl",
       inputSchema: {
         type: "object",
         properties: {

@@ -42,6 +42,8 @@ El UID de Firebase Auth es el ID del documento. Cada proveedor de auth genera un
 | `phone` | String | No | Telefono |
 | `isActive` | Boolean | Si | Si el usuario esta activo |
 | `photoURL` | String | No | URL de foto de perfil |
+| `linkedMemberId` | String | No | FK a `members/{id}` si tiene inscripcion en el gym |
+| `onboardingCompleted` | Boolean | Si | Si completo el onboarding (default: false) |
 
 ### Campos Android (onboarding)
 
@@ -75,13 +77,15 @@ El UID de Firebase Auth es el ID del documento. Cada proveedor de auth genera un
 
 | Campo | Tipo | Nota |
 |-------|------|------|
-| `familyGroupId` | String | Pendiente (Fase 6) |
+| `familyGroupId` | String | Pendiente — se gestiona en `members`, no en `users` |
 
 ---
 
 ## `members/{memberId}`
 
-Miembros del gimnasio. No requieren cuenta en la app. Solo iOS los gestiona.
+Miembros del gimnasio. No requieren cuenta en la app. Pueden ser creados por el admin (registro manual) o por el sistema (tras onboarding de auto-registro). Ver `business-rules/04-member-registration.md`.
+
+### Datos personales
 
 | Campo | Tipo | Requerido | Descripcion |
 |-------|------|-----------|-------------|
@@ -89,19 +93,49 @@ Miembros del gimnasio. No requieren cuenta en la app. Solo iOS los gestiona.
 | `firstName` | String | Si | Nombre |
 | `paternalLastName` | String | Si | Primer apellido |
 | `maternalLastName` | String | No | Segundo apellido |
-| `phone` | String | No | Telefono |
+| `phone` | String | No | Telefono (normalizado: solo digitos) |
 | `emergencyPhone` | String | No | Telefono de emergencia |
 | `diseases` | String | No | Enfermedades |
 | `injuries` | String | No | Lesiones |
 | `otherNotes` | String | No | Otros datos |
 | `birthDate` | Timestamp | No | Fecha de nacimiento |
 | `guardianInfo` | String | No | Datos del tutor (menores) |
-| `membershipPlanId` | String | No | FK a `membership_plans` |
+
+### Membresia (snapshot inmutable)
+
+Ver `business-rules/07-membership-assignments.md` para flujos completos.
+
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `membershipPlanId` | String | No | FK a `membership_plans` (referencia al plan original) |
 | `membershipStatus` | String | Si | `active`, `expired`, `suspended`, `cancelled`, `pending` |
+| `membershipStartDate` | Timestamp | No | Inicio del periodo de membresia |
+| `membershipEndDate` | Timestamp | No | Fin del periodo (null si `visit_based` puro) |
+| `remainingVisits` | Int | No | Visitas restantes (solo `visit_based` y `mixed`) |
+| `membershipPlanSnapshot` | Map | No | Snapshot inmutable del plan al momento de asignar |
+
+#### Estructura de `membershipPlanSnapshot`
+
+| Campo | Tipo | Descripcion |
+|-------|------|-------------|
+| `planName` | String | Nombre del plan al asignar |
+| `planType` | String | `time_based`, `visit_based`, `mixed` |
+| `planPrice` | Double | Precio al asignar |
+| `planCurrency` | String | Moneda al asignar |
+| `durationInDays` | Int? | Duracion contratada |
+| `totalVisits` | Int? | Visitas contratadas |
+| `maxMembers` | Int | Maximo de miembros del plan |
+| `assignedAt` | Timestamp | Fecha de asignacion |
+| `assignedBy` | String | UID del admin que asigno |
+
+### Vinculacion y meta
+
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `linkedUserId` | String | No | FK a `users/{uid}` si tiene cuenta en la app |
+| `registeredBy` | String | Si | `"self"` (auto-registro) o `"admin:{uid}"` (manual) |
+| `familyGroupId` | String | No | ID compartido entre miembros de un grupo familiar |
 | `registrationDate` | Timestamp | Si | Fecha de inscripcion |
-| `membershipStartDate` | Timestamp | No | Inicio de membresia |
-| `membershipEndDate` | Timestamp | No | Fin de membresia |
-| `familyGroupId` | String | No | ID de grupo familiar |
 | `isActive` | Boolean | Si | Si el miembro esta activo |
 | `createdAt` | Timestamp | Si | Fecha de creacion |
 | `updatedAt` | Timestamp | Si | Fecha de actualizacion |
@@ -110,18 +144,21 @@ Miembros del gimnasio. No requieren cuenta en la app. Solo iOS los gestiona.
 
 ## `membership_plans/{planId}`
 
-Planes de membresia configurables por el admin. Solo iOS los gestiona.
+Catalogo de planes de membresia configurables por el admin. Ver `business-rules/06-membership-plans.md` para tipos y reglas.
 
 | Campo | Tipo | Requerido | Descripcion |
 |-------|------|-----------|-------------|
 | `id` | String | Si | UUID generado |
 | `name` | String | Si | Nombre del plan (ej: "Mensualidad") |
-| `price` | Double | Si | Precio |
-| `currency` | String | Si | Codigo ISO (default: `MXN`) |
-| `durationInDays` | Int | Si | Duracion en dias |
+| `type` | String | Si | `time_based`, `visit_based`, `mixed` |
+| `price` | Double | Si | Precio del plan |
+| `currency` | String | Si | Codigo ISO 4217 (default: `MXN`) |
+| `durationInDays` | Int | Condicional | Requerido si `time_based` o `mixed` |
+| `totalVisits` | Int | Condicional | Requerido si `visit_based` o `mixed` |
+| `maxMembers` | Int | Si | 1 = individual, >1 = familiar |
 | `description` | String | No | Descripcion del plan |
-| `isActive` | Boolean | Si | Si el plan esta disponible |
-| `sortOrder` | Int | Si | Orden de visualizacion |
+| `isActive` | Boolean | Si | Si el plan esta disponible para nuevas asignaciones |
+| `sortOrder` | Int | Si | Orden de visualizacion (ascendente) |
 | `createdAt` | Timestamp | Si | Fecha de creacion |
 | `updatedAt` | Timestamp | Si | Fecha de actualizacion |
 
