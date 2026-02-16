@@ -1,101 +1,19 @@
-# Operaciones Firestore
+# Operaciones Firestore (iOS)
 
-> Guia para leer, escribir y consultar datos en Firestore desde iOS.
-
----
-
-## Colecciones
-
-| Coleccion | Documento ID | Descripcion |
-|-----------|-------------|-------------|
-| `users` | Firebase Auth UID | Usuarios de la app |
-| `members` | UUID generado | Miembros del gimnasio |
-| `membership_plans` | UUID generado | Planes de membresia |
-| `user_emails` | Email normalizado | Indice email → userId |
-| `app_config` | `"setup"` | Configuracion global |
+> Patrones de codigo Swift para leer, escribir y consultar datos en Firestore.
+> Para la estructura de documentos y campos, ver `knowledge/schema.md`.
 
 ---
 
-## Estructura de documentos
+## Colecciones que iOS gestiona
 
-### `users/{uid}`
-
-```json
-{
-  "id": "abc123",
-  "email": "admin@sajarubox.com",
-  "fullName": "Francisco Saldivar",
-  "phone": null,
-  "role": "admin",
-  "isActive": true,
-  "photoURL": null,
-  "createdAt": "2026-01-15T10:30:00Z",
-  "updatedAt": "2026-01-15T10:30:00Z"
-}
-```
-
-### `members/{memberId}`
-
-```json
-{
-  "id": "uuid-1234",
-  "firstName": "Juan",
-  "paternalLastName": "Garcia",
-  "maternalLastName": "Lopez",
-  "phone": "5512345678",
-  "emergencyPhone": "5587654321",
-  "diseases": "No",
-  "injuries": "No",
-  "otherNotes": null,
-  "birthDate": "1990-05-20T00:00:00Z",
-  "guardianInfo": null,
-  "membershipPlanId": "plan-uuid",
-  "membershipStatus": "active",
-  "registrationDate": "2026-01-10T00:00:00Z",
-  "membershipStartDate": "2026-01-10T00:00:00Z",
-  "membershipEndDate": "2026-02-09T00:00:00Z",
-  "familyGroupId": null,
-  "isActive": true,
-  "createdAt": "2026-01-10T12:00:00Z",
-  "updatedAt": "2026-01-10T12:00:00Z"
-}
-```
-
-### `membership_plans/{planId}`
-
-```json
-{
-  "id": "plan-uuid",
-  "name": "Mensualidad",
-  "price": 350.0,
-  "currency": "MXN",
-  "durationInDays": 30,
-  "description": "Acceso ilimitado por 1 mes",
-  "isActive": true,
-  "sortOrder": 1,
-  "createdAt": "2026-01-01T00:00:00Z",
-  "updatedAt": "2026-01-01T00:00:00Z"
-}
-```
-
-### `user_emails/{email}`
-
-```json
-{
-  "primaryUserId": "firebase-auth-uid",
-  "email": "admin@sajarubox.com",
-  "createdAt": "2026-01-15T10:30:00Z"
-}
-```
-
-### `app_config/setup`
-
-```json
-{
-  "adminUserId": "firebase-auth-uid",
-  "createdAt": "2026-01-15T10:30:00Z"
-}
-```
+| Coleccion | Repositorio Swift |
+|-----------|-------------------|
+| `users` | `FirestoreUserRepository` |
+| `members` | `FirestoreMemberRepository` |
+| `membership_plans` | `FirestoreMembershipPlanRepository` |
+| `user_emails` | `FirestoreUserRepository` (metodos de indice) |
+| `app_config` | `FirestoreUserRepository` (metodos de admin setup) |
 
 ---
 
