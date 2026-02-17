@@ -26,10 +26,14 @@ flowchart TD
         PaymentLocal["PaymentLocal\n(SwiftData)"]
         MemberVM["MemberViewModel\n(pago integrado)"]
         MemberForm["MemberFormView\n(seccion pago)"]
+        QuickAction["QuickActionSheet\n(cobro rapido visita)"]
+        PlanSelect["PlanSelectionSheet\n(asignacion plan + cobro)"]
         PaymentHistory["PaymentHistoryView"]
         PaymentDeps --> MemberVM
         PaymentDeps --> PaymentHistory
         MemberVM --> MemberForm
+        MemberVM --> QuickAction
+        MemberVM --> PlanSelect
         MemberVM --> PaymentHistory
     end
 ```
@@ -171,9 +175,68 @@ Nuevas secciones agregadas:
 ### Integracion con MemberViewModel
 
 - `@Dependency(\.paymentRepository)` inyectado
+- `@Dependency(\.checkInRepository)` inyectado
 - `@Published var formPaymentMethod: PaymentMethod = .cash`
 - En `performSave()` modo creacion: si hay plan seleccionado, crea `Payment` tipo `.membership` despues de crear el miembro
-- En `performSave()` modo edicion: si se selecciona un plan nuevo, crea `Payment` y actualiza la membresia del miembro
+- En `performSave()` modo edicion: si se selecciona un plan (mismo o diferente), crea `Payment` y actualiza la membresia del miembro
+
+### Tres puntos de entrada para cobros
+
+| Punto de entrada | Flujo | Metodo del ViewModel |
+|---|---|---|
+| **MemberFormView** (registro/edicion completa) | Seleccionar plan → cobrar al guardar | `performSave()` |
+| **QuickActionSheet** (cobro rapido de visita) | 1-3 visitas con check-in automatico | `quickVisitPurchase()` |
+| **PlanSelectionSheet** (asignacion de plan) | Seleccionar plan → asignar y cobrar | `assignPlanToMember()` |
+
+### Cobro rapido de visita (quickVisitPurchase)
+
+Metodo dedicado para el flujo rapido desde `QuickActionSheet`. NO usa `performSave()`.
+
+```swift
+func quickVisitPurchase(
+    member: Member,
+    quantity: Int,      // 1, 2, o 3 visitas
+    method: PaymentMethod,
+    isFreeVisit: Bool = false  // Primera visita gratis
+)
+```
+
+Flujo:
+1. Busca `visitPlan` (plan `visit_based` con `totalVisits == 1`) en catalogo
+2. Si `isFreeVisit`: no crea Payment, snapshot con precio $0
+3. Si no es gratis: crea `Payment` con `amount = plan.price * quantity`
+4. Crea `MembershipPlanSnapshot` con datos del plan
+5. Actualiza miembro: `membershipStatus = .active`, `remainingVisits = quantity`
+6. Crea `CheckIn` automatico (primera visita del paquete)
+7. Descuenta 1 visita del total
+8. Si `remainingVisits` llega a 0: marca como `expired`
+9. Refresca lista con `loadMembers()`
+
+### Asignacion de plan (assignPlanToMember)
+
+Metodo dedicado para el flujo desde `PlanSelectionSheet`. NO usa `performSave()`.
+
+```swift
+func assignPlanToMember()
+```
+
+Flujo:
+1. Lee `planSelectionMember` y `formSelectedPlan`
+2. Crea `Payment` tipo `membership` con snapshot del plan
+3. Crea `MembershipPlanSnapshot`
+4. Calcula fechas segun tipo de plan
+5. Actualiza miembro con nueva membresia
+6. Limpia `planSelectionMember`
+7. Refresca lista
+
+### Primera visita gratis
+
+Regla: si `member.membershipPlanSnapshot == nil` (nunca tuvo plan), la primera visita no tiene costo.
+
+```swift
+let isFirstVisit = member.membershipPlanSnapshot == nil
+// En QuickActionSheet: si isFirstVisit, llama quickVisitPurchase(isFreeVisit: true)
+```
 
 ---
 
@@ -253,5 +316,10 @@ import Dependencies
 - [x] `PaymentHistoryView` con lista de pagos por miembro
 - [x] Acceso a historial desde context menu en `MembersView`
 - [x] Commit en AMBOS repos
+- [x] QuickActionSheet con cobro rapido de visita (1-3 visitas)
+- [x] PlanSelectionSheet con seleccion directa de plan + cobro
+- [x] Primera visita gratis para miembros nuevos
+- [x] `quickVisitPurchase()` en MemberViewModel
+- [x] `assignPlanToMember()` en MemberViewModel separado de `performSave()`
 - [ ] Pendiente: `PaymentFormView` independiente (cobros sin membresia: pase de dia, producto, servicio)
 - [ ] Pendiente: Tab de historial de pagos global (admin)

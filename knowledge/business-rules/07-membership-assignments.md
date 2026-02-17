@@ -354,10 +354,36 @@ flowchart TD
 
 ## Vencimiento automatico
 
-- No hay proceso automatico de vencimiento por ahora
-- El sistema verifica el estado al momento del check-in
-- El admin puede ver "dias restantes" o "visitas restantes" en la lista de miembros
-- Calculo: si `membershipEndDate < hoy` o `remainingVisits == 0`, se considera expirada
+Las membresias se expiran automaticamente al cargar la lista de miembros en la app iOS. No hay Cloud Function ni cron job.
+
+### Mecanismo (implementado)
+
+```mermaid
+flowchart TD
+    Start([loadMembers en MemberViewModel]) --> FetchAll[Obtener todos los miembros de Firestore]
+    FetchAll --> Loop{Para cada miembro con status active}
+    Loop --> CheckDate{"membershipEndDate != null\nY membershipEndDate < hoy?"}
+    CheckDate -->|Si| MarkExpired["Actualizar en Firestore:\nmembershipStatus = expired\nupdatedAt = ahora"]
+    CheckDate -->|No| Next[Siguiente miembro]
+    MarkExpired --> Next
+    Next --> Loop
+    Loop -->|Todos procesados| ShowList[Mostrar lista actualizada]
+```
+
+### Reglas de expiracion automatica
+
+1. Se ejecuta en `expireOverdueMembers()` cada vez que el admin abre la pantalla de miembros
+2. Solo verifica `membershipEndDate` — el descuento de visitas se maneja en el check-in
+3. Si no hay conexion, los miembros siguen mostrando su status anterior
+4. No se notifica al miembro — solo se actualiza el campo en Firestore
+5. Si la base crece significativamente (>500), considerar Cloud Function con Cloud Scheduler
+
+### Dos mecanismos de expiracion
+
+| Mecanismo | Cuando | Trigger |
+|---|---|---|
+| **Por fecha** | `membershipEndDate < hoy` | `loadMembers()` → `expireOverdueMembers()` |
+| **Por visitas** | `remainingVisits == 0` | `performCheckIn()` en `CheckInViewModel` |
 
 ---
 
@@ -419,15 +445,54 @@ flowchart TD
 
 ### Reglas
 
-1. Solo se verifica `membershipEndDate` — no se verifica `remainingVisits` (el descuento de visitas no existe)
+1. Solo se verifica `membershipEndDate` — el descuento de visitas se maneja en el check-in
 2. La expiracion se ejecuta cada vez que el admin abre la pantalla de miembros
 3. Si no hay conexion, los miembros siguen mostrando su status anterior (se expiraran al reconectar)
-4. Se usa `batch write` para eficiencia si hay multiples miembros a expirar
+4. Se usa `TaskGroup` para eficiencia si hay multiples miembros a expirar
 5. No se notifica al miembro — solo se actualiza el campo en Firestore
 
 ### Alternativa futura
 
 Si la base de miembros crece significativamente (>500), considerar una Cloud Function con Cloud Scheduler que corra diariamente para expirar membresias.
+
+---
+
+## Acciones rapidas (QuickActionSheet)
+
+El admin puede realizar acciones rapidas desde la lista de miembros al tocar una fila. Esto simplifica el flujo mas comun: registrar visitas y asignar planes.
+
+### Opciones disponibles
+
+| Accion | Descripcion | Cuando disponible |
+|---|---|---|
+| **Registrar visita** | Check-in con cobro automatico | Siempre |
+| **Registrar plan** | Asignar plan con cobro | Siempre |
+| Editar datos personales | Abrir formulario completo | Siempre |
+| Historial de pagos | Ver cobros del miembro | Siempre |
+
+### Logica de "Registrar visita" segun estado
+
+| Estado del miembro | Resultado |
+|---|---|
+| Activo con plan vigente | Check-in directo, sin cobro adicional |
+| Primera visita (sin snapshot) | Visita gratis + check-in |
+| Expirado/suspendido/cancelado | Mostrar formulario de cobro (1-3 visitas) |
+
+### Primera visita gratis
+
+- Aplica solo si `membershipPlanSnapshot == nil` (nunca tuvo plan)
+- Se asigna snapshot con precio $0
+- Se registra check-in automatico
+- En la siguiente visita se cobra normalmente
+
+### Compra de multiples visitas
+
+- El admin puede cobrar 1, 2 o 3 visitas a la vez
+- 4+ dias se manejan como plan semanal
+- El check-in automatico consume 1 visita del paquete
+- Las visitas restantes se usan en check-ins futuros
+
+Ver `08-payments.md` para detalles de cobros.
 
 ---
 
@@ -441,10 +506,13 @@ Si la base de miembros crece significativamente (>500), considerar una Cloud Fun
 6. Solo el admin puede asignar, renovar, suspender o cancelar membresias
 7. El miembro no puede auto-asignarse una membresia desde la app
 8. El precio del snapshot no se puede modificar despues de la asignacion
-9. La renovacion crea un nuevo snapshot a precios actuales del catalogo
+9. La renovacion crea un nuevo snapshot a precios actuales del catalogo (se permite renovar el MISMO plan)
 10. La cancelacion es permanente; para reactivar se necesita un nuevo plan
 11. La suspension no extiende la fecha de vencimiento
 12. Toda asignacion o renovacion genera un `Payment` tipo `membership` (ver `08-payments.md`)
 13. El historial de pagos sirve como historial de membresias — cada Payment tipo `membership` conserva su snapshot
 14. El check-in registra asistencia y descuenta `remainingVisits` para planes `visit_based` y `mixed`. Si las visitas llegan a 0, la membresia pasa a `expired`
-15. Las membresias se expiran automaticamente al cargar la lista de miembros (verificacion de fecha)
+15. Las membresias se expiran automaticamente al cargar la lista de miembros (verificacion de `membershipEndDate`)
+16. La primera visita de un miembro nuevo (sin snapshot previo) es gratuita
+17. Se pueden comprar de 1 a 3 visitas de una vez con check-in automatico incluido
+18. El QuickActionSheet permite acciones rapidas sin necesidad de abrir el formulario completo de edicion

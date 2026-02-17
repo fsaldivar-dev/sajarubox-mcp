@@ -126,6 +126,67 @@ flowchart TD
 
 ---
 
+## Flujo: Cobro rapido de visita
+
+Para miembros que llegan al gimnasio sin plan activo. El admin puede cobrar y registrar el check-in en una sola operacion desde el QuickActionSheet.
+
+### Diagrama
+
+```mermaid
+flowchart TD
+    Start([Admin toca miembro en lista]) --> QuickSheet["Abrir QuickActionSheet"]
+    QuickSheet --> CheckStatus{"Estado del miembro?"}
+    
+    CheckStatus -->|Activo con plan| DirectCheckIn["Registrar visita sin cobro\n(Check-in normal)"]
+    
+    CheckStatus -->|Primera visita\nsin snapshot| FreeVisit["Visita gratis\n(confirmacion directa)"]
+    FreeVisit --> CreateFreeSnapshot["Snapshot con monto $0\nstatus = active\nremainingVisits = 1"]
+    CreateFreeSnapshot --> AutoCheckIn["Check-in automatico\n(descuenta a 0 → expired)"]
+    AutoCheckIn --> Success["Toast: Visita registrada"]
+    
+    CheckStatus -->|Expirado/pendiente\ncon historial| ShowPayment["Mostrar seccion de cobro"]
+    ShowPayment --> SelectQty["Elegir cantidad: 1, 2, o 3 visitas"]
+    SelectQty --> ShowTotal["Total: precio × cantidad"]
+    ShowTotal --> SelectMethod["Metodo: Efectivo/Tarjeta/Transferencia"]
+    SelectMethod --> ConfirmPay["Boton: Cobrar $X y registrar visita"]
+    ConfirmPay --> CreatePayment["Crear Payment\ntype = membership\namount = precio × cantidad\nstatus = completed"]
+    CreatePayment --> UpdateMember["Actualizar miembro\nstatus = active\nremainingVisits = cantidad"]
+    UpdateMember --> AutoCheckIn2["Check-in automatico\n(descuenta 1 del total)"]
+    AutoCheckIn2 --> CheckZero{"remainingVisits == 0?"}
+    CheckZero -->|Si| Expire["status = expired"]
+    CheckZero -->|No| SuccessPaid["Toast: Visita cobrada y check-in registrado"]
+    Expire --> SuccessPaid
+```
+
+### Reglas del cobro rapido
+
+1. El precio por visita se toma del plan `visit_based` con `totalVisits == 1` del catalogo (plan "Visita")
+2. Se pueden comprar de 1 a 3 visitas a la vez
+3. Si son 4+ dias, el admin deberia registrar un plan semanal en su lugar
+4. El check-in se registra automaticamente con la primera visita del paquete
+5. Si se compra 1 visita: queda con `remainingVisits = 0` despues del check-in (expired inmediatamente)
+6. Si se compran 2: queda con `remainingVisits = 1` (puede volver manana)
+7. Si se compran 3: queda con `remainingVisits = 2`
+
+### Primera visita gratis
+
+Un miembro se considera "primera visita" cuando `membershipPlanSnapshot == nil` (nunca tuvo plan asignado).
+
+| Condicion | Resultado |
+|---|---|
+| `membershipPlanSnapshot == nil` | Primera visita: gratis, sin cobro |
+| `membershipPlanSnapshot != nil` y expirado | Cobro requerido |
+| `membershipStatus == active` | Check-in normal, sin cobro |
+
+Reglas:
+1. Solo aplica si el miembro **nunca** tuvo un plan (snapshot nulo)
+2. Se crea un snapshot con `planPrice = 0` y `planName = "Visita"` (o nombre del visitPlan)
+3. Se asigna `remainingVisits = 1` y se registra check-in inmediato
+4. La membresia queda como `expired` despues del check-in (1 visita consumida)
+5. En la siguiente visita, se cobrara normalmente
+
+---
+
 ## Flujo: Cobro de producto o servicio
 
 Para ventas de productos (agua, suplementos) o servicios (clase personalizada).
@@ -181,9 +242,13 @@ Si el miembro tiene cuenta en la app y esta vinculado, puede ver su propio histo
 5. El pago tipo `day_pass` permite check-in ese dia sin necesidad de plan activo
 6. El `registeredBy` identifica al admin/recepcionista que hizo el cobro (auditoria)
 7. Los pagos nunca se eliminan — son historicos inmutables
-8. El monto del Payment para tipo `membership` debe coincidir con el precio del plan en el snapshot
+8. El monto del Payment para tipo `membership` debe coincidir con el precio del plan en el snapshot (excepto visita gratis donde amount = 0)
 9. Al renovar, se crea un nuevo Payment — no se modifica el anterior
 10. El historial de pagos se ordena por `createdAt` descendente (mas reciente primero)
+11. La primera visita de un miembro nuevo (sin snapshot previo) es gratuita — se crea Payment con amount = 0
+12. El cobro rapido de visita puede incluir de 1 a 3 visitas en una sola transaccion
+13. El cobro rapido incluye check-in automatico (primera visita del paquete se consume inmediatamente)
+14. Existen tres puntos de entrada para cobros: MemberFormView (completo), QuickActionSheet (visita rapida), PlanSelectionSheet (plan simplificado)
 
 ---
 

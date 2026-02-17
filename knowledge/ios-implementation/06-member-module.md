@@ -14,8 +14,10 @@ sajaru-box-ios/
 └── SajaruBox/App/Presentation/
     ├── MembersModule/
     │   ├── MemberViewData.swift      # Estado de la vista + MemberFormMode
-    │   ├── MemberViewModel.swift     # CRUD, validacion, snapshot, familia
-    │   └── MemberFormView.swift      # Formulario de registro/edicion
+    │   ├── MemberViewModel.swift     # CRUD, validacion, snapshot, familia, cobro rapido
+    │   ├── MemberFormView.swift      # Formulario de registro/edicion completo
+    │   ├── QuickActionSheet.swift    # Sheet de acciones rapidas (tap en miembro)
+    │   └── PlanSelectionSheet.swift  # Sheet simplificado de seleccion de plan
     └── HomeModule/Pages/
         └── MembersView.swift         # Lista principal (tab Miembros)
 
@@ -36,6 +38,9 @@ sajarubox-mobile-ios-packages/
 ```mermaid
 flowchart LR
     subgraph ui [Capa UI]
+        MembersView --> QuickActionSheet
+        QuickActionSheet --> PlanSelectionSheet
+        QuickActionSheet --> MemberFormView
         MembersView --> MemberFormView
     end
 
@@ -46,6 +51,8 @@ flowchart LR
     subgraph deps [Dependencias]
         MemberRepo["@Dependency memberRepository"]
         PlanRepo["@Dependency membershipPlanRepository"]
+        PaymentRepo["@Dependency paymentRepository"]
+        CheckInRepo["@Dependency checkInRepository"]
         CurrentUser["@Dependency currentUser"]
     end
 
@@ -56,8 +63,14 @@ flowchart LR
 
     MembersView -->|"@StateObject"| MemberViewModel
     MemberFormView -->|"@ObservedObject"| MemberViewModel
+    MembersView -->|"@StateObject"| MemberViewModel
+    QuickActionSheet -->|"@ObservedObject"| MemberViewModel
+    PlanSelectionSheet -->|"@ObservedObject"| MemberViewModel
+    MemberFormView -->|"@ObservedObject"| MemberViewModel
     MemberViewModel --> MemberRepo
     MemberViewModel --> PlanRepo
+    MemberViewModel --> PaymentRepo
+    MemberViewModel --> CheckInRepo
     MemberViewModel --> CurrentUser
     MemberRepo --> FirestoreMemberRepo
     FirestoreMemberRepo --> Firestore
@@ -282,6 +295,7 @@ struct MemberViewData {
     var memberToDelete: Member?
     var showDuplicateWarning: Bool = false
     var duplicateName: String?
+    var quickActionMember: Member?         // Miembro para QuickActionSheet
 }
 ```
 
@@ -310,9 +324,11 @@ Se usa `Identifiable` para `.sheet(item:)` y evitar bugs de re-presentacion.
 | 3 | Nacimiento | Siempre | Toggle + `DatePicker`, indicador menor |
 | 4 | Datos del tutor | Si `isFormMinor` | `guardianInfo` (texto libre) |
 | 5 | Salud | Siempre | `diseases`, `injuries`, `otherNotes` |
-| 6 | Membresia | Solo creacion (pendiente: habilitar en edicion con pago) | Picker de plan, detalles, fecha inicio |
+| 6a | Membresia actual | Solo edicion (si tiene plan) | Status, plan, vencimiento, visitas restantes |
+| 6b | Asignar plan | Siempre | Picker de plan, detalles, fecha inicio |
 | 7 | Grupo familiar | Solo si plan familiar | Segmented (nuevo/existente), lista grupo |
-| 8 | Resumen | Si nombre completo | Nombre, plan, fecha, grupo |
+| 8 | Cobro | Si se selecciono plan | Metodo de pago (segmented), monto auto-calculado |
+| 9 | Resumen | Si nombre completo | Nombre, plan, fecha, grupo, metodo de pago |
 
 ---
 
@@ -376,15 +392,17 @@ if let v = member.phone { data["phone"] = v }
 
 | Aspecto | Creacion | Edicion |
 |---------|----------|---------|
-| Seccion membresia | Visible | Oculta |
-| Seccion grupo familiar | Visible si plan familiar | Oculta |
+| Seccion membresia actual | Oculta | Visible (muestra plan vigente) |
+| Seccion asignar plan | Visible | Visible (para renovar/cambiar plan) |
+| Seccion cobro | Si plan seleccionado | Si plan seleccionado |
+| Seccion grupo familiar | Visible si plan familiar | Visible si plan familiar |
 | Deteccion duplicados | Activa | Desactivada |
 | `registeredBy` | `"admin:{uid}"` | Se conserva el original |
-| `membershipStatus` | Segun plan seleccionado | Se conserva el original |
+| `membershipStatus` | Segun plan seleccionado | Se actualiza si nuevo plan seleccionado |
 | `registrationDate` | `Date()` (hoy) | Se conserva el original |
 | Boton | "Registrar" | "Guardar" |
 
-En edicion, solo se actualizan datos personales/contacto/salud. Los campos de membresia se conservan del miembro existente.
+En edicion, se pueden actualizar datos personales/contacto/salud Y asignar/renovar un plan con cobro.
 
 ---
 
@@ -408,9 +426,12 @@ En edicion, solo se actualizan datos personales/contacto/salud. Los campos de me
 
 | Gesto | Accion |
 |-------|--------|
+| **Tap en fila** | Abrir QuickActionSheet (acciones rapidas) |
 | Swipe izquierda (trailing) | Desactivar/Activar |
-| Swipe derecha (leading) | Editar |
-| Context menu | Editar / Desactivar |
+| Swipe derecha (leading) | Check-in / Editar |
+| Boton lapiz (azul) | Abrir MemberFormView (edicion completa) |
+| Boton check-in (verde) | Check-in directo (solo miembros activos) |
+| Context menu | Check-in / Editar / Historial pagos / Desactivar |
 | Pull to refresh | Recargar lista |
 | Toolbar "+" | Abrir formulario creacion |
 
@@ -426,18 +447,149 @@ En edicion, solo se actualizan datos personales/contacto/salud. Los campos de me
 
 ---
 
+## QuickActionSheet (acciones rapidas)
+
+Al tocar un miembro en la lista se abre un sheet con dos botones principales y acciones secundarias.
+
+### Estructura
+
+```
+┌──────────────────────────────────────────────────┐
+│ Header: Nombre + Plan actual + Status badge      │
+│ (si activo: visitas restantes / dias restantes)   │
+├──────────────────────────────────────────────────┤
+│ [ Registrar visita ]  [ Registrar plan ]         │
+├──────────────────────────────────────────────────┤
+│ Seccion de cobro (solo si no activo):            │
+│ Visitas: [-] 1 [+]   Total: $50 MXN             │
+│ Metodo: [Efectivo] [Tarjeta] [Transferencia]     │
+│ [ Cobrar $50 y registrar visita ]                │
+├──────────────────────────────────────────────────┤
+│ > Editar datos personales                        │
+│ > Historial de pagos                             │
+└──────────────────────────────────────────────────┘
+```
+
+### Comportamiento de "Registrar visita"
+
+| Estado del miembro | Comportamiento |
+|---|---|
+| **Activo** (plan vigente) | Confirmacion directa → check-in normal, sin pago |
+| **Pendiente** (primera visita, sin snapshot) | Confirmacion directa → visita gratis + check-in |
+| **Expirado / cancelado / suspendido** | Seccion de pago visible: stepper 1-3 visitas, precio, metodo, confirmar |
+
+### Comportamiento de "Registrar plan"
+
+Siempre abre `PlanSelectionSheet` (ver abajo).
+
+### Primera visita gratis
+
+Un miembro se considera "primera visita" cuando:
+- `membershipPlanSnapshot == nil` (nunca tuvo plan)
+- `membershipStatus == .pending`
+
+En este caso, "Registrar visita" va directo a confirmacion sin pedir pago. Se asigna un snapshot "Visita de cortesia" con monto $0.
+
+### Flujo de cobro rapido (quickVisitPurchase)
+
+```mermaid
+flowchart TD
+    Start([Admin toca Cobrar en QuickActionSheet]) --> Confirm["Alert: Confirmar cobro"]
+    Confirm -->|Cancelar| End([Cerrar])
+    Confirm -->|Cobrar| GetPlan["Obtener visitPlan del catalogo"]
+    GetPlan --> CreatePayment["Crear Payment\ntype = membership\namount = precio * cantidad"]
+    CreatePayment --> UpdateMember["Actualizar miembro\nstatus = active\nremainingVisits = cantidad"]
+    UpdateMember --> CheckIn["Crear CheckIn automatico"]
+    CheckIn --> Decrement["Descontar 1 visita\n(primera del paquete)"]
+    Decrement --> CheckExpired{"remainingVisits == 0?"}
+    CheckExpired -->|Si| MarkExpired["status = expired"]
+    CheckExpired -->|No| Success["Toast: Visita cobrada y check-in registrado"]
+    MarkExpired --> Success
+```
+
+### Metodos del ViewModel involucrados
+
+- `visitPlan: MembershipPlan?` — computed que busca plan `visit_based` con `totalVisits == 1`
+- `weeklyPlan: MembershipPlan?` — computed que busca plan con `durationInDays` entre 5-7
+- `quickVisitPurchase(member:quantity:method:isFreeVisit:)` — crea pago (si no es gratis), asigna plan, hace check-in automatico
+
+### Carga de planes
+
+El sheet llama `viewModel.loadAvailablePlans()` en `.onAppear` para asegurar que `visitPlan` y `weeklyPlan` esten disponibles. Sin esto, la seccion de pago muestra "Cargando planes...".
+
+### "Editar datos personales"
+
+Cierra el QuickActionSheet y despues de 0.3s llama `viewModel.prepareEdit(member)`, que abre `MemberFormView` desde el `.sheet(item: $viewModel.data.formMode)` de `MembersView`.
+
+---
+
+## PlanSelectionSheet (seleccion de plan)
+
+Sheet simplificado que solo muestra la seleccion de plan y pago, sin datos personales.
+
+### Estructura
+
+```
+┌──────────────────────────────────────────────────┐
+│ [Cancelar]    Seleccionar plan        [Asignar]  │
+├──────────────────────────────────────────────────┤
+│ SELECCIONA UN PLAN                               │
+│ Visita           visit_based      $50   ○        │
+│ Semanal          time_based      $120   ●        │
+│ Mensualidad      time_based      $350   ○        │
+├──────────────────────────────────────────────────┤
+│ DETALLES DEL PLAN                                │
+│ Tipo: Basado en tiempo                           │
+│ Precio: $120 MXN                                 │
+│ Duracion: 7 dias                                 │
+│ Fecha de inicio: [DatePicker]                    │
+├──────────────────────────────────────────────────┤
+│ COBRO                                            │
+│ [Efectivo] [Tarjeta] [Transferencia]             │
+│ Total a cobrar:                     $120         │
+└──────────────────────────────────────────────────┘
+```
+
+### Diferencias con MemberFormView
+
+| Aspecto | PlanSelectionSheet | MemberFormView |
+|---|---|---|
+| Datos personales | No muestra | Muestra todos |
+| Planes | Lista directa con seleccion | Picker con navigationLink |
+| Pago | Incluido | Incluido |
+| Uso | Desde QuickActionSheet | Desde toolbar "+" o editar |
+
+### Metodos del ViewModel involucrados
+
+- `preparePlanSelection(_:)` — guarda miembro en `planSelectionMember`, carga planes, NO toca `data.formMode`
+- `assignPlanToMember()` — crea Payment, actualiza membresia del miembro, independiente de `performSave()`
+
+### Separacion de formMode
+
+`PlanSelectionSheet` usa `planSelectionMember` (propiedad simple del ViewModel) en vez de `data.formMode` para evitar que `MembersView` abra `MemberFormView` simultaneamente.
+
+---
+
+## Implementado
+
+- **Check-in con descuento de visitas**: registra asistencia y descuenta `remainingVisits` para planes `visit_based` y `mixed`. Si llega a 0, marca la membresia como `expired`. Ver `07-checkin-module.md`
+- **Expiracion automatica**: al ejecutar `loadMembers()`, se detectan membresias activas con `membershipEndDate < hoy` y se marcan como `expired` en Firestore via `expireOverdueMembers()`
+- **Pagos integrados**: asignacion y renovacion de plan incluyen registro de cobro automatico. Ver `08-payment-module.md`
+- **QuickActionSheet**: acciones rapidas al tocar un miembro (registrar visita, registrar plan, editar datos)
+- **PlanSelectionSheet**: seleccion simplificada de plan con cobro, sin mostrar datos personales
+- **Cobro rapido de visita**: `quickVisitPurchase()` para 1-3 visitas con check-in automatico
+- **Primera visita gratis**: miembros nuevos sin snapshot reciben su primera visita sin pago
+- **Historial de pagos**: accesible desde el context menu del miembro. Ver `PaymentHistoryView`
+- **Usuarios registrados sin membresia**: seccion en MembersView que muestra Users de la coleccion `users` sin `linkedMemberId`
+- **Seccion de membresia en edicion**: visible en modo edicion con opcion de asignar nuevo plan y cobrar
+
 ## Pendiente (no implementado)
 
 1. **Auto-registro (Camino 1)**: flujo de onboarding donde el usuario se registra desde la app y se vincula por telefono. Documentado en `04-member-registration.md` pero no implementado en iOS
-2. **Asignacion/cambio de plan en edicion**: actualmente la edicion solo modifica datos personales. La seccion de membresia se oculta en modo edicion. Al implementar el modulo de pagos, habilitar la seccion de membresia en edicion para permitir asignar/renovar/cambiar plan con registro de cobro. Ver `08-payment-module.md`
-3. **Historial de membresias via pagos**: el snapshot anterior se sobreescribe al renovar. El historial se reconstruye desde la coleccion `payments` — cada pago tipo `membership` conserva su snapshot. No se necesita subcoleccion adicional
-4. **Campo email en Member**: agregar campo `email` al modelo `Member` (ya definido en `schema.md`) para habilitar vinculacion automatica User-Member por email ademas de telefono
-5. **Expiracion automatica**: implementar mecanismo para marcar membresias como `expired` cuando `membershipEndDate` ha pasado. Ver seccion en `07-membership-assignments.md`
-
-### Implementado
-
-- **Check-in**: registra asistencia sin modificar la membresia. Ver `07-checkin-module.md`
-- **Usuarios registrados sin membresia**: seccion en MembersView que muestra Users de la coleccion `users` sin `linkedMemberId`
+2. **Campo email en Member**: agregar campo `email` al modelo `Member` (ya definido en `schema.md`) para habilitar vinculacion automatica User-Member por email ademas de telefono
+3. **Validacion de pase de dia en check-in**: verificar `payments` tipo `day_pass` del dia actual para miembros expirados
+4. **Tab de historial de pagos global**: vista admin para ver todos los cobros del gimnasio
+5. **PaymentFormView independiente**: cobros sin membresia (producto, servicio, pase de dia suelto)
 
 ---
 
