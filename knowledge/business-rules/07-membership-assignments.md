@@ -79,7 +79,12 @@ stateDiagram-v2
 
 ---
 
-## Flujo: Asignacion de membresia
+## Flujo: Asignacion de membresia (con pago)
+
+> La asignacion de membresia siempre incluye el registro de un cobro.
+> El admin selecciona plan, registra el metodo de pago, y al confirmar se crea
+> el Payment y se activa la membresia en una sola operacion.
+> Ver `08-payments.md` para mas detalles sobre pagos.
 
 ### Diagrama
 
@@ -101,18 +106,22 @@ flowchart TD
     CheckLimit -->|Si| CheckExisting
 
     CheckPlanType -->|No - Individual| CheckExisting{Miembro tiene membresia activa?}
-    CheckExisting -->|Si| WarnReplace["Mostrar: Este miembro ya tiene una membresia activa. Al asignar una nueva, la anterior se marcara como expirada. Continuar?"]
+    CheckExisting -->|Si| WarnReplace["Mostrar: Este miembro ya tiene una membresia activa.\nAl asignar una nueva, la anterior se marcara como expirada.\nContinuar?"]
     WarnReplace -->|Cancelar| End
     WarnReplace -->|Confirmar| ExpireOld["Marcar membresia anterior como expired"]
-    ExpireOld --> CreateSnapshot
+    ExpireOld --> SelectPayment
     CheckExisting -->|No| ChooseDate[Admin elige fecha de inicio]
 
-    ChooseDate --> CreateSnapshot[Crear snapshot del plan]
+    ChooseDate --> SelectPayment[Seleccionar metodo de pago]
+    SelectPayment --> ConfirmAll["Confirmar asignacion\nPlan: nombre - precio\nMetodo: efectivo/tarjeta/transferencia\nInicio: fecha"]
+    ConfirmAll -->|Cancelar| End
+    ConfirmAll -->|Confirmar| CreatePayment["Crear Payment\ntype = membership\nstatus = completed"]
+    CreatePayment --> CreateSnapshot[Crear snapshot del plan]
     CreateSnapshot --> CalcDates[Calcular fechas y visitas]
     CalcDates --> SaveAssignment["Guardar en members/id\nmembershipStatus = active"]
     SaveAssignment -->|Error| ErrNetwork["Mostrar: No se pudo asignar la membresia. Intenta de nuevo."]
     ErrNetwork --> Start
-    SaveAssignment -->|OK| Success["Mostrar: Membresia asignada exitosamente.\nPlan: nombre - precio\nVigencia: fecha_inicio a fecha_fin"]
+    SaveAssignment -->|OK| Success["Mostrar: Cobro registrado y membresia asignada.\nPlan: nombre - precio\nMetodo: metodo\nVigencia: fecha_inicio a fecha_fin"]
 ```
 
 ### Flujo principal
@@ -122,19 +131,26 @@ flowchart TD
 3. Si es plan familiar: validar grupo y limite
 4. Si ya tiene membresia activa: confirmar reemplazo
 5. Admin elige fecha de inicio (default: hoy)
-6. Sistema crea snapshot del plan actual
-7. Calcula fechas segun tipo:
-   - `time_based`: `endDate = startDate + durationInDays`
-   - `visit_based`: `endDate = null`, `remainingVisits = totalVisits`
-   - `mixed`: ambos
-8. `membershipStatus = "active"`
-9. Se guarda en `members/{id}`
+6. Admin selecciona metodo de pago (efectivo, tarjeta, transferencia)
+7. Confirma la operacion
+8. Se crea un `Payment` tipo `membership` con `status = completed`
+9. Sistema crea snapshot del plan actual
+10. Calcula fechas segun tipo:
+    - `time_based`: `endDate = startDate + durationInDays`
+    - `visit_based`: `endDate = null`, `remainingVisits = totalVisits`
+    - `mixed`: ambos
+11. `membershipStatus = "active"`
+12. Se guarda en `members/{id}`
 
-### Flujo alternativo: miembro ya tiene membresia activa
+### Flujo alternativo: miembro ya tiene membresia activa (cambio de plan)
+
+Escenario comun: miembro pago visita y ahora quiere mensualidad.
 
 1. Mostrar advertencia con datos de la membresia actual
 2. Si confirma: la membresia anterior se marca como `expired`
-3. Se crea nueva asignacion con snapshot fresco
+3. Se crea nuevo Payment con el monto del nuevo plan
+4. Se crea nueva asignacion con snapshot fresco
+5. El historial de pagos conserva ambos cobros
 
 ### Flujo alternativo: plan familiar sin grupo
 
@@ -150,11 +166,12 @@ flowchart TD
 | Plan familiar sin grupo | "Este plan es familiar. Asigna un grupo familiar al miembro primero." |
 | Grupo familiar lleno | "El grupo familiar ya alcanzo el limite de N miembros para este plan." |
 | Fecha de inicio en el pasado | "La fecha de inicio no puede ser anterior a hoy." |
+| Metodo de pago no seleccionado | "Selecciona un metodo de pago." |
 | Error de red | "No se pudo asignar la membresia. Verifica tu conexion." |
 
 ---
 
-## Flujo: Renovacion
+## Flujo: Renovacion (con pago)
 
 ### Diagrama
 
@@ -166,108 +183,100 @@ flowchart TD
     IsSamePlan -->|Si| ShowPriceChange{Precio cambio?}
     ShowPriceChange -->|Si| WarnPrice["Mostrar: El plan nombre ahora cuesta nuevo_precio antes: viejo_precio. Continuar?"]
     WarnPrice -->|Cancelar| SelectNewPlan
-    WarnPrice -->|Confirmar| CreateNewSnapshot
-    ShowPriceChange -->|No| CreateNewSnapshot
-    IsSamePlan -->|No| CreateNewSnapshot[Crear NUEVO snapshot con precios actuales]
+    WarnPrice -->|Confirmar| SelectPayment
+    ShowPriceChange -->|No| SelectPayment
+    IsSamePlan -->|No| SelectPayment[Seleccionar metodo de pago]
+    SelectPayment --> ConfirmRenewal["Confirmar renovacion\nPlan: nombre - precio\nMetodo: metodo"]
+    ConfirmRenewal -->|Cancelar| Start
+    ConfirmRenewal -->|Confirmar| CreatePayment["Crear Payment\ntype = membership\nstatus = completed"]
+    CreatePayment --> CreateNewSnapshot[Crear NUEVO snapshot con precios actuales]
     CreateNewSnapshot --> CalcDates[Calcular nuevas fechas]
     CalcDates --> SaveRenewal["membershipStatus = active\nNuevo snapshot"]
-    SaveRenewal --> Success["Mostrar: Membresia renovada.\nPlan: nombre - precio\nNueva vigencia: fecha_inicio a fecha_fin"]
+    SaveRenewal --> Success["Mostrar: Cobro registrado y membresia renovada.\nPlan: nombre - precio\nMetodo: metodo\nNueva vigencia: fecha_inicio a fecha_fin"]
 ```
 
 ### Flujo principal
 
 1. Admin selecciona miembro con membresia expirada o por expirar
 2. Elige plan (puede ser el mismo u otro)
-3. Se crea NUEVO snapshot con los valores actuales del plan
-4. Nueva fecha de inicio y fin
-5. `membershipStatus = "active"`
+3. Selecciona metodo de pago
+4. Confirma la operacion
+5. Se crea Payment tipo `membership` con `status = completed`
+6. Se crea NUEVO snapshot con los valores actuales del plan
+7. Nueva fecha de inicio y fin
+8. `membershipStatus = "active"`
 
 ### Flujo alternativo: precio cambio desde la ultima asignacion
 
 Si es el mismo plan pero el precio cambio, mostrar aviso al admin antes de confirmar.
 
-> Nota: el snapshot anterior se sobreescribe. Si se necesita historial futuro,
-> se crearia `members/{id}/membership_history`.
+> Nota: el snapshot anterior se sobreescribe. El historial de pagos conserva
+> todos los cobros con sus snapshots, lo que sirve como historial de membresias.
 
 ---
 
-## Flujo: Check-in
+## Flujo: Check-in (solo registro de asistencia)
+
+> El check-in **solo registra asistencia**. NO descuenta visitas, NO modifica la membresia.
+> Sirve para control de asistencias (cuantas veces visita el miembro) e ingresos por hora.
+> Los dias no son acumulables — el check-in valida que la membresia este dentro del rango de fechas.
 
 ### Diagrama
 
 ```mermaid
 flowchart TD
     Start([Miembro llega al gimnasio]) --> AdminCheckin[Admin busca miembro y presiona Check-in]
-    AdminCheckin --> CheckStatus{membershipStatus?}
+    AdminCheckin --> CheckActive{Miembro activo?}
+    CheckActive -->|No| ErrInactive["Mostrar: Este miembro fue dado de baja."]
 
-    CheckStatus -->|pending| ErrPending["Mostrar: Este miembro tiene membresia pendiente. Asigna un plan primero."]
-    CheckStatus -->|suspended| ErrSuspended["Mostrar: La membresia esta suspendida. Contacta al administrador."]
-    CheckStatus -->|cancelled| ErrCancelled["Mostrar: La membresia fue cancelada. Asigna un nuevo plan."]
-    CheckStatus -->|expired| ErrExpired["Mostrar: La membresia expiro el fecha. Renueva para continuar."]
+    CheckActive -->|Si| CheckStatus{membershipStatus?}
+    CheckStatus -->|pending| ErrPending["Mostrar: Membresia pendiente. Asigna un plan primero."]
+    CheckStatus -->|suspended| ErrSuspended["Mostrar: Membresia suspendida."]
+    CheckStatus -->|cancelled| ErrCancelled["Mostrar: Membresia cancelada. Asigna un nuevo plan."]
+    CheckStatus -->|expired| CheckDayPass{Tiene pase de dia hoy?}
+    CheckDayPass -->|No| ErrExpired["Mostrar: Membresia expirada. Renueva para continuar."]
+    CheckDayPass -->|Si| AllowDayPass["Permitir entrada\nMostrar: Bienvenido, nombre. Pase de dia."]
 
-    CheckStatus -->|active| CheckType{Tipo de plan?}
-
-    CheckType -->|time_based| CheckDate{endDate > hoy?}
-    CheckDate -->|No| MarkExpired["membershipStatus = expired"]
-    MarkExpired --> ErrExpiredNow["Mostrar: La membresia acaba de expirar. Renueva para continuar."]
-    CheckDate -->|Si| AllowEntry["Permitir entrada\nMostrar: Bienvenido, nombre. Dias restantes: N"]
-
-    CheckType -->|visit_based| CheckVisits{remainingVisits > 0?}
-    CheckVisits -->|No| MarkExpiredVisits["membershipStatus = expired"]
-    MarkExpiredVisits --> ErrNoVisits["Mostrar: Se agotaron las visitas. Renueva para continuar."]
-    CheckVisits -->|Si| DecrementVisits["remainingVisits -= 1"]
-    DecrementVisits --> CheckLastVisit{remainingVisits == 0?}
-    CheckLastVisit -->|Si| MarkExpiredAfter["membershipStatus = expired"]
-    MarkExpiredAfter --> AllowEntryLast["Permitir entrada\nMostrar: Bienvenido, nombre. Esta es tu ultima visita."]
-    CheckLastVisit -->|No| AllowEntryVisits["Permitir entrada\nMostrar: Bienvenido, nombre. Visitas restantes: N"]
-
-    CheckType -->|mixed| CheckBoth{endDate > hoy Y remainingVisits > 0?}
-    CheckBoth -->|Fecha vencida| MarkExpiredMixed["membershipStatus = expired"]
-    MarkExpiredMixed --> ErrMixedExpired["Mostrar: La membresia expiro por fecha."]
-    CheckBoth -->|Sin visitas| MarkExpiredMixedV["membershipStatus = expired"]
-    MarkExpiredMixedV --> ErrMixedVisits["Mostrar: Se agotaron las visitas antes del fin del periodo."]
-    CheckBoth -->|Ambos OK| DecrementMixed["remainingVisits -= 1"]
-    DecrementMixed --> AllowEntryMixed["Permitir entrada\nMostrar: Bienvenido. Visitas: N, Dias: M"]
+    CheckStatus -->|active| CheckDateRange{Fecha actual dentro del rango del plan?}
+    CheckDateRange -->|No| ErrDateExpired["Mostrar: La membresia vencio. Renueva para continuar."]
+    CheckDateRange -->|Si| RegisterCheckIn["Crear documento check_ins\nRegistrar asistencia"]
+    RegisterCheckIn --> ShowSuccess["Mostrar: Bienvenido, nombre. Asistencia registrada."]
 ```
 
-### Flujo principal (time_based)
+### Flujo principal
 
-1. Verificar que `membershipEndDate > hoy`
-2. Si expirado: marcar como `expired`, rechazar
-3. Si vigente: permitir entrada, mostrar dias restantes
+1. Admin busca al miembro por nombre o telefono
+2. Presiona boton de Check-in
+3. Se valida que el miembro este activo (`isActive = true`)
+4. Se valida el estado de la membresia (`membershipStatus`)
+5. Si es `active`: se valida que la fecha actual este dentro del rango del plan (`membershipStartDate` a `membershipEndDate`)
+6. Se crea un documento en `check_ins` con la fecha/hora de entrada
+7. Se muestra mensaje de bienvenida
 
-### Flujo principal (visit_based)
+### Flujo alternativo: membresia expirada con pase de dia
 
-1. Verificar que `remainingVisits > 0`
-2. `remainingVisits -= 1`
-3. Si `remainingVisits == 0`: marcar como `expired`
-4. Permitir entrada, mostrar visitas restantes
+Si el miembro tiene membresia expirada pero tiene un Payment tipo `day_pass` del dia actual:
+1. Se permite el check-in
+2. Se muestra: "Bienvenido, [nombre]. Pase de dia."
 
-### Flujo principal (mixed)
+### Lo que el check-in NO hace
 
-1. Verificar que `membershipEndDate > hoy` Y `remainingVisits > 0`
-2. `remainingVisits -= 1`
-3. Si cualquier condicion falla: marcar como `expired`
-4. Permitir entrada, mostrar visitas y dias restantes
-
-### Flujo alternativo: plan familiar (visit_based o mixed)
-
-Las visitas son compartidas entre todos los miembros del grupo familiar. El decremento de `remainingVisits` afecta a todo el grupo.
+- **NO descuenta visitas** (`remainingVisits` no se modifica)
+- **NO cambia el status** de la membresia (`membershipStatus` no se modifica)
+- **NO modifica ningun campo** del documento del miembro
+- Solo crea un documento nuevo en `check_ins`
 
 ### Mensajes de check-in
 
 | Situacion | Mensaje |
 |---|---|
-| Entrada exitosa (time_based) | "Bienvenido, [nombre]. Tu membresia vence en [N] dias." |
-| Entrada exitosa (visit_based) | "Bienvenido, [nombre]. Te quedan [N] visitas." |
-| Entrada exitosa (mixed) | "Bienvenido, [nombre]. Visitas: [N], Dias: [M]." |
-| Ultima visita | "Bienvenido, [nombre]. Esta es tu ultima visita. Renueva tu membresia." |
-| Membresia expirada por fecha | "Tu membresia expiro el [fecha]. Renueva para continuar." |
-| Membresia expirada por visitas | "Se agotaron tus visitas. Renueva para continuar." |
-| Membresia pendiente | "Tu membresia esta pendiente de activacion." |
-| Membresia suspendida | "Tu membresia esta suspendida. Contacta al administrador." |
-| Membresia cancelada | "Tu membresia fue cancelada. Contacta al administrador." |
-| Miembro no encontrado | "Miembro no registrado en el sistema." |
+| Entrada exitosa | "Bienvenido, [nombre]. Asistencia registrada." |
+| Segunda visita del dia | "Bienvenido de nuevo, [nombre]. Visita #N del dia." |
+| Pase de dia | "Bienvenido, [nombre]. Pase de dia." |
+| Membresia expirada | "Membresia expirada. Renueva para continuar." |
+| Membresia pendiente | "Membresia pendiente. Asigna un plan primero." |
+| Membresia suspendida | "Membresia suspendida." |
+| Membresia cancelada | "Membresia cancelada. Asigna un nuevo plan." |
 | Miembro inactivo | "Este miembro fue dado de baja." |
 
 ---
@@ -346,9 +355,8 @@ Cuando un plan tiene `maxMembers > 1`:
 
 1. Al asignar, se requiere que el miembro tenga un `familyGroupId`
 2. Se valida que el grupo no exceda `maxMembers`
-3. Todos los miembros del grupo comparten el snapshot
-4. Las visitas (`visit_based` o `mixed`) son compartidas entre el grupo
-5. El check-in de cualquier miembro decrementa las visitas del grupo
+3. Todos los miembros del grupo comparten el snapshot y las fechas de vigencia
+4. El check-in de cualquier miembro del grupo se registra individualmente
 
 ### Errores de planes familiares
 
@@ -356,7 +364,6 @@ Cuando un plan tiene `maxMembers > 1`:
 |---|---|
 | Asignar plan familiar sin grupo | "Este plan es familiar. Asigna un grupo familiar al miembro primero." |
 | Grupo lleno | "El grupo familiar ya tiene el maximo de [N] miembros para este plan." |
-| Visitas del grupo agotadas | "El grupo familiar agoto todas las visitas. Renueva el plan." |
 
 ---
 
@@ -385,4 +392,6 @@ Cuando un plan tiene `maxMembers > 1`:
 9. La renovacion crea un nuevo snapshot a precios actuales del catalogo
 10. La cancelacion es permanente; para reactivar se necesita un nuevo plan
 11. La suspension no extiende la fecha de vencimiento
-12. Las visitas de un plan familiar son compartidas entre todos los miembros del grupo
+12. Toda asignacion o renovacion genera un `Payment` tipo `membership` (ver `08-payments.md`)
+13. El historial de pagos sirve como historial de membresias — cada Payment tipo `membership` conserva su snapshot
+14. El check-in solo registra asistencia — NO descuenta visitas ni modifica la membresia

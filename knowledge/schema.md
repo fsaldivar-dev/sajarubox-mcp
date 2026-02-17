@@ -15,6 +15,7 @@
 | `user_emails` | Email normalizado | Indice email → userId para sync multi-proveedor | iOS |
 | `app_config` | `"setup"` | Configuracion global (admin setup) | iOS |
 | `check_ins` | UUID generado | Registros de asistencia (check-in/check-out) | iOS |
+| `payments` | UUID generado | Pagos y cobros (membresias, pases de dia, productos) | iOS |
 | `classes` | Auto-generado | Clases del gimnasio | Android |
 | `classBookings` | Auto-generado | Reservas de clases | Android |
 | `classAttendance` | Auto-generado | Asistencia a clases | Android |
@@ -186,9 +187,42 @@ Registros de asistencia al gimnasio. Cada vez que un miembro hace check-in, se c
 
 1. El check-in **siempre** requiere `memberId` — el admin busca al miembro por nombre/telefono
 2. `userId` es opcional — muchos miembros no tienen cuenta en la app
-3. Al hacer check-in en planes `visit_based` o `mixed`, se decrementa `remainingVisits` en el documento del miembro
-4. Para **planes familiares**: las visitas son compartidas — el decremento afecta a **todos** los miembros del grupo familiar
-5. Si `remainingVisits` llega a 0 o `membershipEndDate` expira, se actualiza `membershipStatus` a `expired` en el miembro
+3. El check-in **solo registra asistencia** — NO modifica la membresia del miembro (no descuenta visitas, no cambia status)
+4. Al registrar, se **valida** que la membresia este activa y dentro del rango de fechas del plan. Si no lo esta, se muestra error pero no se modifica el documento del miembro
+5. Sirve para control de asistencias (cuantas veces visita el miembro) e ingresos por hora
+
+---
+
+## `payments/{paymentId}`
+
+Registros de pagos y cobros. Se crea un documento cada vez que el admin registra un cobro (membresia, pase de dia, producto, servicio). Ver `business-rules/08-payments.md` para flujos completos.
+
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `id` | String | Si | UUID generado |
+| `memberId` | String | Si | FK a `members/{id}` (siempre requerido) |
+| `userId` | String | No | FK a `users/{uid}` (solo si el miembro tiene cuenta en la app) |
+| `type` | String | Si | `membership`, `day_pass`, `product`, `service` |
+| `method` | String | Si | `cash`, `card`, `transfer` |
+| `status` | String | Si | `pending`, `completed`, `failed`, `refunded`, `cancelled` |
+| `amount` | Double | Si | Monto del cobro |
+| `currency` | String | Si | Codigo ISO 4217 (default: `MXN`) |
+| `description` | String | No | Descripcion o concepto del cobro |
+| `membershipPlanSnapshot` | Map | No | Snapshot del plan si `type = membership` (misma estructura que en `members`) |
+| `registeredBy` | String | Si | UID del admin/recepcionista que registro el cobro |
+| `createdAt` | Timestamp | Si | Fecha de creacion |
+| `updatedAt` | Timestamp | Si | Fecha de actualizacion |
+| `completedAt` | Timestamp | No | Fecha en que se completo el pago |
+
+### Reglas de negocio de pagos
+
+1. `memberId` es **siempre requerido** — todo cobro esta vinculado a un miembro del gym
+2. `userId` es opcional — muchos miembros no tienen cuenta en la app
+3. Un pago tipo `membership` debe incluir `membershipPlanSnapshot` con los datos del plan asignado
+4. Al completar un pago tipo `membership`, se actualiza la membresia del miembro (status, fechas, snapshot)
+5. Un pago `completed` **no se puede modificar** — solo se puede crear un pago tipo `refunded`
+6. El pago tipo `day_pass` permite check-in ese dia aunque el miembro no tenga plan activo
+7. `registeredBy` identifica al admin/recepcionista que realizo el cobro (auditoria)
 
 ---
 

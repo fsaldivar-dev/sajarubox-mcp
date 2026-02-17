@@ -318,6 +318,98 @@ Regla: quitar todo lo que no sea digito (`[^0-9]`).
 
 ---
 
+## Vinculacion automatica al registrar User (SessionResolver)
+
+Cuando un usuario se registra en la app (iOS o Android), el `SessionResolver` intenta vincularlo
+automaticamente con un Member existente. Esto permite que los miembros registrados por el admin
+puedan ver sus datos al crear una cuenta en la app.
+
+### Diagrama
+
+```mermaid
+flowchart TD
+    Start([User se registra en la app]) --> CreateUser["SessionResolver crea users/uid"]
+    CreateUser --> GetPhone{User tiene telefono?}
+    GetPhone -->|Si| NormalizePhone[Normalizar telefono a solo digitos]
+    NormalizePhone --> SearchByPhone["Buscar en members WHERE phone == telNormalizado AND linkedUserId == null"]
+    SearchByPhone --> FoundByPhone{Match encontrado?}
+    FoundByPhone -->|Si| Link["Vincular:\nmembers.linkedUserId = uid\nusers.linkedMemberId = member.id"]
+    FoundByPhone -->|No| SearchByEmail["Buscar en members WHERE email-match posible"]
+    GetPhone -->|No| SearchByEmail
+    SearchByEmail --> FoundByEmail{Match encontrado?}
+    FoundByEmail -->|Si| Link
+    FoundByEmail -->|No| NoLink["Sin vinculacion\nUser ve: Acude a recepcion"]
+    Link --> Linked["User vinculado a Member\nVe sus datos de membresia"]
+    NoLink --> Done([Continuar al Home])
+    Linked --> Done
+```
+
+### Flujo de vinculacion
+
+1. Despues de crear o resolver el `User`, el `SessionResolver` intenta vincular
+2. Busca en `members` por telefono normalizado (`phone == telNormalizado AND linkedUserId == null`)
+3. Si no hay match por telefono, busca por email si es posible
+4. Si encuentra un `Member` sin vincular: actualiza `Member.linkedUserId = uid` y `User.linkedMemberId = member.id`
+5. Si no encuentra match: no vincula, el User ve un mensaje de "acude a recepcion"
+
+### Reglas de vinculacion
+
+1. Solo se vincula si el `Member` no tiene `linkedUserId` (evitar vincular a un miembro ya vinculado)
+2. La vinculacion es 1:1 — un User solo puede vincularse a un Member, y viceversa
+3. Si hay multiples matches por telefono, se muestra lista para que el usuario seleccione
+4. La vinculacion preserva todo el historial del Member (membresia, check-ins, pagos)
+
+---
+
+## Estados del miembro en la app
+
+Cuando un usuario abre la app, lo que ve depende de su estado de vinculacion con un Member.
+
+### Diagrama
+
+```mermaid
+flowchart TD
+    Start([User abre la app]) --> CheckLinked{User.linkedMemberId != null?}
+    CheckLinked -->|No| StateNoMember["ESTADO 1: Sin vinculacion\nMostrar: Aun no estas registrado en el gimnasio.\nAcude a recepcion para activar tu membresia."]
+
+    CheckLinked -->|Si| LoadMember[Cargar Member vinculado]
+    LoadMember --> CheckMemberStatus{membershipStatus?}
+
+    CheckMemberStatus -->|pending| StatePending["ESTADO 2: Pendiente\nMostrar: Tu registro esta pendiente.\nAcude a recepcion para activar tu plan."]
+
+    CheckMemberStatus -->|active| StateActive["ESTADO 3: Activo\nMostrar:\n- Plan: nombre\n- Vence: fecha\n- Check-ins este mes: N\n- Ultimo check-in: fecha/hora"]
+
+    CheckMemberStatus -->|expired| StateExpired["ESTADO 4: Expirado\nMostrar: Tu membresia expiro el fecha.\nRenueva en recepcion para seguir asistiendo."]
+
+    CheckMemberStatus -->|suspended| StateSuspended["ESTADO 5: Suspendido\nMostrar: Tu membresia esta suspendida.\nContacta al administrador."]
+
+    CheckMemberStatus -->|cancelled| StateCancelled["ESTADO 6: Cancelado\nMostrar: Tu membresia fue cancelada.\nContacta al administrador para reactivar."]
+```
+
+### Detalle de estados
+
+| Estado | Condicion | Lo que ve el miembro |
+|--------|-----------|---------------------|
+| Sin vinculacion | `User.linkedMemberId == null` | "Aun no estas registrado. Acude a recepcion." |
+| Pendiente | `Member.membershipStatus == pending` | "Tu registro esta pendiente. Acude a recepcion." |
+| Activo | `Member.membershipStatus == active` | Plan, dias restantes, historial de check-ins, pagos |
+| Expirado | `Member.membershipStatus == expired` | "Tu membresia expiro. Renueva en recepcion." |
+| Suspendido | `Member.membershipStatus == suspended` | "Tu membresia esta suspendida." |
+| Cancelado | `Member.membershipStatus == cancelled` | "Tu membresia fue cancelada." |
+
+### Datos visibles para el miembro activo
+
+Cuando el miembro tiene membresia activa, la app muestra:
+
+- **Plan actual**: nombre del plan (del snapshot)
+- **Vigencia**: fecha de inicio y fin
+- **Dias restantes**: calculado desde `membershipEndDate`
+- **Check-ins del mes**: conteo de documentos en `check_ins` del mes actual
+- **Ultimo check-in**: fecha y hora del check-in mas reciente
+- **Historial de pagos**: lista de pagos ordenados por fecha (solo lectura)
+
+---
+
 ## Reglas de negocio
 
 1. Nombre y primer apellido son obligatorios
@@ -330,3 +422,5 @@ Regla: quitar todo lo que no sea digito (`[^0-9]`).
 8. Si un miembro fue registrado manualmente y luego se vincula, conserva su historial de membresia
 9. Un miembro solo puede vincularse a un usuario, y un usuario solo puede vincularse a un miembro
 10. Al detectar posible duplicado, se advierte al admin pero se permite crear si confirma
+11. El `SessionResolver` intenta vincular automaticamente al User con un Member existente por telefono o email
+12. Un User sin Member vinculado ve un mensaje indicando que acuda a recepcion
