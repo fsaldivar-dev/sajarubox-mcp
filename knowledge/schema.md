@@ -14,6 +14,7 @@
 | `membership_plans` | UUID generado | Planes de membresia configurables | iOS |
 | `user_emails` | Email normalizado | Indice email → userId para sync multi-proveedor | iOS |
 | `app_config` | `"setup"` | Configuracion global (admin setup) | iOS |
+| `check_ins` | UUID generado | Registros de asistencia (check-in/check-out) | iOS |
 | `classes` | Auto-generado | Clases del gimnasio | Android |
 | `classBookings` | Auto-generado | Reservas de clases | Android |
 | `classAttendance` | Auto-generado | Asistencia a clases | Android |
@@ -161,6 +162,33 @@ Catalogo de planes de membresia configurables por el admin. Ver `business-rules/
 | `sortOrder` | Int | Si | Orden de visualizacion (ascendente) |
 | `createdAt` | Timestamp | Si | Fecha de creacion |
 | `updatedAt` | Timestamp | Si | Fecha de actualizacion |
+
+---
+
+## `check_ins/{checkInId}`
+
+Registros de asistencia al gimnasio. Cada vez que un miembro hace check-in, se crea un documento. El admin/recepcionista busca al miembro y registra su entrada. Ver `business-rules/07-membership-assignments.md` para el flujo completo de check-in.
+
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `id` | String | Si | UUID generado |
+| `memberId` | String | Si | FK a `members/{id}` (siempre requerido) |
+| `userId` | String | No | FK a `users/{uid}` (solo si el miembro tiene cuenta en la app) |
+| `registeredBy` | String | No | UID del admin/recepcionista que registro el check-in |
+| `type` | String | Si | `member`, `guest`, `visitor` |
+| `checkInDate` | Timestamp | Si | Fecha/hora de entrada |
+| `checkOutDate` | Timestamp | No | Fecha/hora de salida (null si aun esta en el gym) |
+| `notes` | String | No | Notas adicionales |
+| `createdAt` | Timestamp | Si | Fecha de creacion |
+| `updatedAt` | Timestamp | Si | Fecha de actualizacion |
+
+### Reglas de negocio del check-in
+
+1. El check-in **siempre** requiere `memberId` — el admin busca al miembro por nombre/telefono
+2. `userId` es opcional — muchos miembros no tienen cuenta en la app
+3. Al hacer check-in en planes `visit_based` o `mixed`, se decrementa `remainingVisits` en el documento del miembro
+4. Para **planes familiares**: las visitas son compartidas — el decremento afecta a **todos** los miembros del grupo familiar
+5. Si `remainingVisits` llega a 0 o `membershipEndDate` expira, se actualiza `membershipStatus` a `expired` en el miembro
 
 ---
 
