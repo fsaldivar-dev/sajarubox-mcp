@@ -32,7 +32,7 @@ El UID de Firebase Auth es el ID del documento. Cada proveedor de auth genera un
 |-------|------|-----------|-------------|
 | `id` | String | Si | UID de Firebase Auth |
 | `email` | String | Si | Email del usuario |
-| `role` | String | Si | `admin` o `member` |
+| `role` | String | Si | `admin`, `receptionist`, `trainer`, `member`, `guest`, `visitor` |
 | `createdAt` | Timestamp | Si | Fecha de creacion |
 | `updatedAt` | Timestamp | Si | Fecha de ultima actualizacion |
 
@@ -96,6 +96,7 @@ Miembros del gimnasio. No requieren cuenta en la app. Pueden ser creados por el 
 | `paternalLastName` | String | Si | Primer apellido |
 | `maternalLastName` | String | No | Segundo apellido |
 | `phone` | String | No | Telefono (normalizado: solo digitos) |
+| `email` | String | No | Email del miembro (para vinculacion con User y comunicacion) |
 | `emergencyPhone` | String | No | Telefono de emergencia |
 | `diseases` | String | No | Enfermedades |
 | `injuries` | String | No | Lesiones |

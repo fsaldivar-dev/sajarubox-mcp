@@ -310,7 +310,7 @@ Se usa `Identifiable` para `.sheet(item:)` y evitar bugs de re-presentacion.
 | 3 | Nacimiento | Siempre | Toggle + `DatePicker`, indicador menor |
 | 4 | Datos del tutor | Si `isFormMinor` | `guardianInfo` (texto libre) |
 | 5 | Salud | Siempre | `diseases`, `injuries`, `otherNotes` |
-| 6 | Membresia | Solo creacion | Picker de plan, detalles, fecha inicio |
+| 6 | Membresia | Solo creacion (pendiente: habilitar en edicion con pago) | Picker de plan, detalles, fecha inicio |
 | 7 | Grupo familiar | Solo si plan familiar | Segmented (nuevo/existente), lista grupo |
 | 8 | Resumen | Si nombre completo | Nombre, plan, fecha, grupo |
 
@@ -429,9 +429,15 @@ En edicion, solo se actualizan datos personales/contacto/salud. Los campos de me
 ## Pendiente (no implementado)
 
 1. **Auto-registro (Camino 1)**: flujo de onboarding donde el usuario se registra desde la app y se vincula por telefono. Documentado en `04-member-registration.md` pero no implementado en iOS
-2. **Asignacion de plan en edicion**: actualmente la edicion solo modifica datos personales. Reasignar plan requiere un flujo separado (ver `07-membership-assignments.md`)
-3. **Historial de membresias**: al renovar, el snapshot anterior se sobreescribe. Para historial, crear subcoleccion `members/{id}/membership_history`
-4. **Check-in**: descontar visitas al hacer check-in. Documentado en `07-membership-assignments.md`
+2. **Asignacion/cambio de plan en edicion**: actualmente la edicion solo modifica datos personales. La seccion de membresia se oculta en modo edicion. Al implementar el modulo de pagos, habilitar la seccion de membresia en edicion para permitir asignar/renovar/cambiar plan con registro de cobro. Ver `08-payment-module.md`
+3. **Historial de membresias via pagos**: el snapshot anterior se sobreescribe al renovar. El historial se reconstruye desde la coleccion `payments` — cada pago tipo `membership` conserva su snapshot. No se necesita subcoleccion adicional
+4. **Campo email en Member**: agregar campo `email` al modelo `Member` (ya definido en `schema.md`) para habilitar vinculacion automatica User-Member por email ademas de telefono
+5. **Expiracion automatica**: implementar mecanismo para marcar membresias como `expired` cuando `membershipEndDate` ha pasado. Ver seccion en `07-membership-assignments.md`
+
+### Implementado
+
+- **Check-in**: registra asistencia sin modificar la membresia. Ver `07-checkin-module.md`
+- **Usuarios registrados sin membresia**: seccion en MembersView que muestra Users de la coleccion `users` sin `linkedMemberId`
 
 ---
 

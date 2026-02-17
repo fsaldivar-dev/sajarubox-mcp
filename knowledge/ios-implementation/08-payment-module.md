@@ -245,8 +245,48 @@ Vista que muestra el historial de pagos de un miembro. Se puede acceder desde:
 
 ---
 
+## Migracion necesaria en PaymentsCore
+
+El modelo `Payment` actual en `PaymentsCore/Payment.swift` tiene desalineaciones con `schema.md` que se deben corregir **antes** de implementar el modulo.
+
+### Campos a corregir
+
+| Campo | Estado actual | Debe ser | Accion |
+|-------|-------------|----------|--------|
+| `userId` | `String` (requerido) | `String?` (opcional) | Cambiar a opcional — muchos miembros no tienen cuenta |
+| `memberId` | `String?` (opcional) | `String` (requerido) | Cambiar a requerido — todo cobro se vincula a un miembro |
+| `membershipPlanSnapshot` | No existe | `MembershipPlanSnapshot?` | Agregar — necesario para pagos tipo `membership` |
+| `registeredBy` | No existe | `String` | Agregar — UID del admin que registro el cobro (auditoria) |
+
+### Enums a ajustar
+
+| Enum | Valor | Accion |
+|------|-------|--------|
+| `PaymentMethod.stripe` | Existe | Mantener (uso futuro), pero no mostrar en UI por ahora |
+| `PaymentMethod.applePay` | Existe | Mantener (uso futuro), pero no mostrar en UI por ahora |
+| `PaymentMethod.googlePay` | Existe | Mantener (uso futuro), pero no mostrar en UI por ahora |
+| `PaymentType.guestInvite` | Existe | Evaluar si se necesita o eliminar |
+
+### Conformancias faltantes
+
+| Protocolo | `Payment` | `PaymentRepository` | `PaymentService` |
+|-----------|-----------|--------------------:|------------------:|
+| `Sendable` | Falta | Falta | Falta |
+| `CaseIterable` en enums | OK en `PaymentMethod` | — | — |
+
+### Impacto en PaymentLocal (app repo)
+
+Al modificar el modelo `Payment`, tambien se debe actualizar:
+- `App/Data/Local/PaymentLocal.swift` — agregar campos nuevos (`registeredBy`, `membershipPlanSnapshotJSON`)
+- `toDomain()` y `fromDomain(_:)` — mapear los nuevos campos
+- Cambiar `userId` de requerido a opcional y `memberId` de opcional a requerido
+
+---
+
 ## Checklist de implementacion
 
+- [ ] **Migrar modelo** `Payment` en `PaymentsCore` (corregir campos, agregar `Sendable`)
+- [ ] **Actualizar** `PaymentLocal` en app repo (nuevos campos)
 - [ ] `FirestorePaymentRepository` en `FirebaseVendor` (actor, encode/decode manual)
 - [ ] Agregar `PaymentsCore` a dependencias de `FirebaseVendor` en `Package.swift`
 - [ ] `PaymentDependencies` en `PlatformAppiOS`

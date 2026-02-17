@@ -379,6 +379,46 @@ Cuando un plan tiene `maxMembers > 1`:
 
 ---
 
+## Expiracion automatica de membresias
+
+Las membresias no se expiran automaticamente en Firestore (no hay cron job ni Cloud Function).
+En su lugar, la expiracion se maneja **al cargar la lista de miembros** en la app iOS.
+
+### Mecanismo
+
+```mermaid
+flowchart TD
+    Start([loadMembers en MemberViewModel]) --> FetchAll[Obtener todos los miembros de Firestore]
+    FetchAll --> Loop{Para cada miembro con status active}
+    Loop --> CheckDate{"membershipEndDate != null\nY membershipEndDate < hoy?"}
+    CheckDate -->|Si| MarkExpired["Actualizar en Firestore:\nmembershipStatus = expired\nupdatedAt = ahora"]
+    CheckDate -->|No| Next[Siguiente miembro]
+    MarkExpired --> Next
+    Next --> Loop
+    Loop -->|Todos procesados| ShowList[Mostrar lista actualizada]
+```
+
+### Flujo
+
+1. Al ejecutar `loadMembers()`, despues de obtener todos los miembros de Firestore
+2. Para cada miembro con `membershipStatus == active`:
+   - Si `membershipEndDate != nil` y `membershipEndDate < hoy`: marcar como `expired` en Firestore
+3. Recargar la lista con los cambios aplicados
+
+### Reglas
+
+1. Solo se verifica `membershipEndDate` — no se verifica `remainingVisits` (el descuento de visitas no existe)
+2. La expiracion se ejecuta cada vez que el admin abre la pantalla de miembros
+3. Si no hay conexion, los miembros siguen mostrando su status anterior (se expiraran al reconectar)
+4. Se usa `batch write` para eficiencia si hay multiples miembros a expirar
+5. No se notifica al miembro — solo se actualiza el campo en Firestore
+
+### Alternativa futura
+
+Si la base de miembros crece significativamente (>500), considerar una Cloud Function con Cloud Scheduler que corra diariamente para expirar membresias.
+
+---
+
 ## Reglas de negocio
 
 1. Un miembro solo puede tener UNA membresia activa a la vez
@@ -395,3 +435,4 @@ Cuando un plan tiene `maxMembers > 1`:
 12. Toda asignacion o renovacion genera un `Payment` tipo `membership` (ver `08-payments.md`)
 13. El historial de pagos sirve como historial de membresias — cada Payment tipo `membership` conserva su snapshot
 14. El check-in solo registra asistencia — NO descuenta visitas ni modifica la membresia
+15. Las membresias se expiran automaticamente al cargar la lista de miembros (verificacion de fecha)
