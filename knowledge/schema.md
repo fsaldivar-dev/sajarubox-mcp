@@ -188,9 +188,9 @@ Registros de asistencia al gimnasio. Cada vez que un miembro hace check-in, se c
 
 1. El check-in **siempre** requiere `memberId` — el admin busca al miembro por nombre/telefono
 2. `userId` es opcional — muchos miembros no tienen cuenta en la app
-3. El check-in **solo registra asistencia** — NO modifica la membresia del miembro (no descuenta visitas, no cambia status)
-4. Al registrar, se **valida** que la membresia este activa y dentro del rango de fechas del plan. Si no lo esta, se muestra error pero no se modifica el documento del miembro
-5. Sirve para control de asistencias (cuantas veces visita el miembro) e ingresos por hora
+3. El check-in registra asistencia y **descuenta `remainingVisits`** para planes `visit_based` y `mixed`. Si las visitas llegan a 0, la membresia pasa a `expired`
+4. Al registrar, se **valida** que la membresia este activa, que tenga visitas restantes (si aplica), y que este dentro del rango de fechas del plan
+5. Sirve para control de asistencias (cuantas veces visita el miembro), ingresos por hora, y gestion de visitas
 
 ---
 

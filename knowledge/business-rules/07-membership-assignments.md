@@ -215,11 +215,11 @@ Si es el mismo plan pero el precio cambio, mostrar aviso al admin antes de confi
 
 ---
 
-## Flujo: Check-in (solo registro de asistencia)
+## Flujo: Check-in (registro de asistencia + descuento de visitas)
 
-> El check-in **solo registra asistencia**. NO descuenta visitas, NO modifica la membresia.
-> Sirve para control de asistencias (cuantas veces visita el miembro) e ingresos por hora.
-> Los dias no son acumulables — el check-in valida que la membresia este dentro del rango de fechas.
+> El check-in registra asistencia y **descuenta visitas** para planes `visit_based` y `mixed`.
+> Para planes `time_based`, solo registra asistencia sin modificar la membresia.
+> Si las visitas llegan a 0, la membresia se marca como `expired`.
 
 ### Diagrama
 
@@ -237,9 +237,13 @@ flowchart TD
     CheckDayPass -->|No| ErrExpired["Mostrar: Membresia expirada. Renueva para continuar."]
     CheckDayPass -->|Si| AllowDayPass["Permitir entrada\nMostrar: Bienvenido, nombre. Pase de dia."]
 
-    CheckStatus -->|active| CheckDateRange{Fecha actual dentro del rango del plan?}
-    CheckDateRange -->|No| ErrDateExpired["Mostrar: La membresia vencio. Renueva para continuar."]
-    CheckDateRange -->|Si| RegisterCheckIn["Crear documento check_ins\nRegistrar asistencia"]
+    CheckStatus -->|active| CheckVisits{remainingVisits?}
+    CheckVisits -->|null| RegisterCheckIn["Crear documento check_ins\nRegistrar asistencia"]
+    CheckVisits -->|0| ErrNoVisits["Mostrar: Sin visitas restantes. Renueva la membresia."]
+    CheckVisits -->|> 0| RegisterAndDecrement["Crear documento check_ins\nDescontar 1 visita\nActualizar miembro"]
+    RegisterAndDecrement --> CheckZero{remainingVisits == 0?}
+    CheckZero -->|Si| MarkExpired["membershipStatus = expired\nMostrar: Visitas agotadas"]
+    CheckZero -->|No| ShowRemaining["Mostrar: X visitas restantes"]
     RegisterCheckIn --> ShowSuccess["Mostrar: Bienvenido, nombre. Asistencia registrada."]
 ```
 
@@ -248,10 +252,20 @@ flowchart TD
 1. Admin busca al miembro por nombre o telefono
 2. Presiona boton de Check-in
 3. Se valida que el miembro este activo (`isActive = true`)
-4. Se valida el estado de la membresia (`membershipStatus`)
-5. Si es `active`: se valida que la fecha actual este dentro del rango del plan (`membershipStartDate` a `membershipEndDate`)
+4. Se valida el estado de la membresia (`membershipStatus == active`)
+5. Si el plan tiene `remainingVisits`, se valida que sea > 0
 6. Se crea un documento en `check_ins` con la fecha/hora de entrada
-7. Se muestra mensaje de bienvenida
+7. **Si `remainingVisits != nil`**: se descuenta 1 y se actualiza el miembro en Firestore
+8. **Si `remainingVisits` llega a 0**: se marca `membershipStatus = expired`
+9. Se muestra mensaje de bienvenida con visitas restantes (si aplica)
+
+### Descuento de visitas por tipo de plan
+
+| Tipo de plan | Tiene `remainingVisits` | Se descuenta en check-in | Se expira por visitas |
+|---|:---:|:---:|:---:|
+| `time_based` | No (`nil`) | No | No (solo por fecha) |
+| `visit_based` | Si | **Si** | **Si** (cuando llega a 0) |
+| `mixed` | Si | **Si** | **Si** (cuando llega a 0, o por fecha) |
 
 ### Flujo alternativo: membresia expirada con pase de dia
 
@@ -259,19 +273,17 @@ Si el miembro tiene membresia expirada pero tiene un Payment tipo `day_pass` del
 1. Se permite el check-in
 2. Se muestra: "Bienvenido, [nombre]. Pase de dia."
 
-### Lo que el check-in NO hace
-
-- **NO descuenta visitas** (`remainingVisits` no se modifica)
-- **NO cambia el status** de la membresia (`membershipStatus` no se modifica)
-- **NO modifica ningun campo** del documento del miembro
-- Solo crea un documento nuevo en `check_ins`
+> **Pendiente**: Validacion de pase de dia aun no implementada.
 
 ### Mensajes de check-in
 
 | Situacion | Mensaje |
 |---|---|
-| Entrada exitosa | "Bienvenido, [nombre]. Asistencia registrada." |
+| Entrada exitosa (plan time_based) | "Bienvenido, [nombre]. Asistencia registrada." |
+| Entrada exitosa (con visitas) | "Bienvenido, [nombre]. Asistencia registrada.\nX visita(s) restante(s)." |
+| Ultima visita (agotada) | "Bienvenido, [nombre]. Asistencia registrada.\nVisitas agotadas. La membresia ha expirado." |
 | Segunda visita del dia | "Bienvenido de nuevo, [nombre]. Visita #N del dia." |
+| Sin visitas restantes | "Sin visitas restantes. Renueva la membresia." |
 | Pase de dia | "Bienvenido, [nombre]. Pase de dia." |
 | Membresia expirada | "Membresia expirada. Renueva para continuar." |
 | Membresia pendiente | "Membresia pendiente. Asigna un plan primero." |
@@ -434,5 +446,5 @@ Si la base de miembros crece significativamente (>500), considerar una Cloud Fun
 11. La suspension no extiende la fecha de vencimiento
 12. Toda asignacion o renovacion genera un `Payment` tipo `membership` (ver `08-payments.md`)
 13. El historial de pagos sirve como historial de membresias — cada Payment tipo `membership` conserva su snapshot
-14. El check-in solo registra asistencia — NO descuenta visitas ni modifica la membresia
+14. El check-in registra asistencia y descuenta `remainingVisits` para planes `visit_based` y `mixed`. Si las visitas llegan a 0, la membresia pasa a `expired`
 15. Las membresias se expiran automaticamente al cargar la lista de miembros (verificacion de fecha)

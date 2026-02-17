@@ -2,7 +2,7 @@
 
 > Guia tecnica para la implementacion del modulo de check-in en la app iOS de SajaruBox.
 > Referencia de reglas de negocio: `business-rules/07-membership-assignments.md` (seccion "Flujo: Check-in").
-> **El check-in solo registra asistencia. NO descuenta visitas ni modifica la membresia.**
+> **El check-in registra asistencia y descuenta visitas para planes visit_based y mixed.**
 
 ---
 
@@ -30,12 +30,13 @@ graph TD
     MembersView --> CheckInViewModel
     MembersView --> MemberViewModel
     CheckInViewModel --> CheckInRepository
+    CheckInViewModel --> MemberRepository
     CheckInViewModel --> CurrentUserManager
     CheckInRepository --> FirestoreCheckInRepository
     CheckInResultView --> CheckInViewData
 ```
 
-> Nota: `CheckInViewModel` **no** depende de `MemberRepository`. El check-in no modifica el documento del miembro.
+> `CheckInViewModel` depende de `MemberRepository` para descontar visitas en planes visit_based y mixed.
 
 ---
 
@@ -49,50 +50,70 @@ sequenceDiagram
     participant MembersView
     participant CheckInVM as CheckInViewModel
     participant CheckInRepo as FirestoreCheckInRepository
+    participant MemberRepo as FirestoreMemberRepository
 
-    Admin->>MembersView: Desliza "Check-in" en fila de miembro
+    Admin->>MembersView: Desliza "Check-in" o boton verde
     MembersView->>CheckInVM: performCheckIn(member)
     CheckInVM->>CheckInVM: Validar member.isActive
     CheckInVM->>CheckInVM: Validar member.membershipStatus == active
+    CheckInVM->>CheckInVM: Validar remainingVisits > 0 (si aplica)
 
-    alt Miembro inactivo o status no activo
+    alt Validacion falla
         CheckInVM->>MembersView: Mostrar error con mensaje especifico
-    else Membresia activa
-        CheckInVM->>CheckInVM: Validar fecha dentro del rango del plan
-        alt Fecha fuera de rango
-            CheckInVM->>MembersView: Mostrar error "Membresia vencida"
-        else Fecha valida
-            CheckInVM->>CheckInRepo: createCheckIn(registro)
-            CheckInVM->>CheckInRepo: getTodayCheckIns(memberId)
-            CheckInVM->>MembersView: Mostrar resultado exitoso
+    else Validaciones OK
+        CheckInVM->>CheckInRepo: createCheckIn(registro)
+        alt Plan con visitas (visit_based o mixed)
+            CheckInVM->>CheckInVM: remainingVisits -= 1
+            CheckInVM->>MemberRepo: updateMember(con nuevo remainingVisits)
+            alt remainingVisits llega a 0
+                CheckInVM->>MemberRepo: membershipStatus = expired
+            end
         end
+        CheckInVM->>CheckInRepo: getTodayCheckIns()
+        CheckInVM->>MembersView: Mostrar resultado con visitas restantes
     end
 ```
 
-### Lo que el check-in hace
+### Paso a paso
 
 1. Valida que el miembro este activo (`isActive == true`)
 2. Valida que `membershipStatus == active`
-3. Valida que la fecha actual este dentro del rango de la membresia
-4. Crea un documento nuevo en `check_ins`
-5. Muestra mensaje de bienvenida con el conteo de visitas del dia
+3. Si el plan tiene `remainingVisits`, valida que sea > 0
+4. Crea un documento nuevo en `check_ins` (registro de asistencia)
+5. **Si el plan tiene `remainingVisits`**: descuenta 1 visita via `memberRepository.updateMember()`
+6. **Si `remainingVisits` llega a 0**: marca `membershipStatus = .expired`
+7. Muestra mensaje de bienvenida con visitas restantes (si aplica)
+
+### Lo que el check-in hace
+
+- Registra asistencia (documento en `check_ins`)
+- Descuenta `remainingVisits` para planes `visit_based` y `mixed`
+- Marca membresia como `expired` si las visitas llegan a 0
+- Muestra conteo de check-ins del dia y visitas restantes
 
 ### Lo que el check-in NO hace
 
-- **NO descuenta visitas** (`remainingVisits` no se modifica)
-- **NO cambia el status** de la membresia (`membershipStatus` no se modifica)
-- **NO actualiza ningun campo** del documento del miembro
-- **NO depende de `MemberRepository`** — solo usa `CheckInRepository`
+- **NO modifica `membershipEndDate`** — la expiracion por fecha se maneja en `MemberViewModel.loadMembers()`
+- **NO cobra pagos** — eso se maneja en `MemberFormView` al asignar plan
 
 ### Validacion por estado de membresia
 
 | Estado | Permitir check-in | Mensaje |
 |--------|-------------------|---------|
-| `active` | Si (continuar validacion de fecha) | — |
+| `active` | Si (continuar validacion de visitas) | — |
 | `pending` | No | "Membresia pendiente. Asigna un plan primero." |
 | `suspended` | No | "Membresia suspendida." |
 | `cancelled` | No | "Membresia cancelada. Asigna un nuevo plan." |
-| `expired` | Verificar pase de dia | "Membresia expirada. Renueva para continuar." |
+| `expired` | No (verificar pase de dia pendiente) | "Membresia expirada. Renueva para continuar." |
+
+### Validacion de visitas restantes
+
+| Situacion | Resultado |
+|-----------|-----------|
+| `remainingVisits == nil` | Plan time_based, no se descuenta nada |
+| `remainingVisits > 1` | Se descuenta 1, check-in exitoso |
+| `remainingVisits == 1` | Se descuenta a 0, membresia pasa a `expired` |
+| `remainingVisits == 0` | Error: "Sin visitas restantes. Renueva la membresia." |
 
 ### Validacion de pase de dia (pendiente de implementar)
 
@@ -104,14 +125,31 @@ Si `membershipStatus == expired`, buscar en `payments` si existe un pago tipo `d
 
 | Situacion | Mensaje |
 |-----------|---------|
-| Entrada exitosa | "Bienvenido, [nombre]. Asistencia registrada." |
+| Entrada exitosa (sin visitas) | "Bienvenido, [nombre]. Asistencia registrada." |
+| Entrada exitosa (con visitas) | "Bienvenido, [nombre]. Asistencia registrada.\nX visita(s) restante(s)." |
+| Ultima visita (agotada) | "Bienvenido, [nombre]. Asistencia registrada.\nVisitas agotadas. La membresia ha expirado." |
 | Segunda visita del dia | "Bienvenido de nuevo, [nombre]. Visita #N del dia." |
-| Pase de dia (pendiente) | "Bienvenido, [nombre]. Pase de dia." |
+| Sin visitas restantes | "Sin visitas restantes. Renueva la membresia." |
 | Membresia expirada | "Membresia expirada. Renueva para continuar." |
 | Membresia pendiente | "Membresia pendiente. Asigna un plan primero." |
 | Membresia suspendida | "Membresia suspendida." |
 | Membresia cancelada | "Membresia cancelada. Asigna un nuevo plan." |
 | Miembro inactivo | "Este miembro fue dado de baja." |
+
+---
+
+## CheckInResultView
+
+Sheet que muestra el resultado del check-in con:
+
+- Icono (verde checkmark o rojo warning)
+- Nombre del miembro
+- Mensaje de resultado
+- Info de membresia (solo en exito):
+  - Nombre del plan
+  - Dias restantes (si time_based o mixed)
+  - **Visitas restantes** (si visit_based o mixed)
+  - Hora de entrada
 
 ---
 
@@ -129,13 +167,15 @@ Se sigue el mismo patron que `FirestoreMemberRepository` para evitar problemas c
 - Fechas como `Timestamp` de Firestore
 - Ordenamiento en memoria (sin `.order(by:)` de Firestore) para evitar indices compuestos
 
-### 3. Check-in no modifica al miembro
+### 3. Descuento de visitas en el check-in
 
-Decisiones tomadas:
-- El check-in **solo registra asistencia** para control (cuantas veces visita, a que hora)
-- El descuento de visitas y cambio de status se manejara en el **modulo de pagos** al momento de cobrar
-- Los dias no son acumulables — el check-in valida que la membresia este en rango de fechas
-- Esto simplifica enormemente la logica y evita race conditions al actualizar multiples documentos
+El check-in **descuenta visitas** para planes `visit_based` y `mixed`:
+- Si el miembro tiene `remainingVisits != nil`, se descuenta 1 al hacer check-in
+- Si `remainingVisits` llega a 0, el `membershipStatus` pasa a `.expired`
+- El miembro actualizado (con nuevo `remainingVisits` y posible nuevo `status`) se persiste via `memberRepository.updateMember()`
+- El `CheckInResult` recibe el miembro actualizado para que la UI muestre el estado correcto
+
+**No se descuenta nada** si `remainingVisits == nil` (plan `time_based` puro).
 
 ### 4. Integracion en MembersView (no tab separado)
 
@@ -145,7 +185,7 @@ El check-in se integra directamente en la lista de miembros via:
 - **Menu contextual**: alternativa al swipe
 - **Sheet de resultado**: muestra mensaje de bienvenida o error
 
-Razon: el flujo natural del admin es "buscar miembro → hacer check-in", que coincide con la pantalla de miembros.
+Razon: el flujo natural del admin es "buscar miembro -> hacer check-in", que coincide con la pantalla de miembros.
 
 ### 5. ViewModel separado (CheckInViewModel)
 
