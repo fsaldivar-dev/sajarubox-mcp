@@ -7,13 +7,15 @@
 
 ## Colecciones que iOS gestiona
 
-| Coleccion | Repositorio Swift |
-|-----------|-------------------|
-| `users` | `FirestoreUserRepository` |
-| `members` | `FirestoreMemberRepository` |
-| `membership_plans` | `FirestoreMembershipPlanRepository` |
-| `user_emails` | `FirestoreUserRepository` (metodos de indice) |
-| `app_config` | `FirestoreUserRepository` (metodos de admin setup) |
+| Coleccion | Repositorio Swift | Notas |
+|-----------|-------------------|-------|
+| `users` | `FirestoreUserRepository` | |
+| `members` | `FirestoreMemberRepository` | Incluye `membershipPlanSnapshot` como sub-mapa |
+| `membership_plans` | `FirestoreMembershipPlanRepository` | |
+| `check_ins` | `FirestoreCheckInRepository` | |
+| `payments` | `FirestorePaymentRepository` | Incluye `membershipPlanSnapshot` como sub-mapa |
+| `user_emails` | `FirestoreUserRepository` (metodos de indice) | |
+| `app_config` | `FirestoreUserRepository` (metodos de admin setup) | |
 
 ---
 
@@ -226,3 +228,38 @@ public func getUserCount() async throws -> Int {
     return Int(truncating: snapshot.count)
 }
 ```
+
+---
+
+## Colisiones de nombres con FirebaseFirestore
+
+`FirebaseFirestore` define varios tipos que pueden colisionar con tipos de nuestros modulos Core:
+
+| Tipo de Firebase | Modulo que colisiona | Solucion |
+|-----------------|---------------------|----------|
+| `FirebaseFirestore.Transaction` | `PaymentsCore.Transaction` | Calificar como `PaymentsCore.Transaction` |
+| `FirebaseFirestore.DocumentSnapshot` | — | No colisiona actualmente |
+| `FirebaseFirestore.Timestamp` | — | No colisiona actualmente |
+
+### Regla
+
+Cuando un repositorio Firestore importa tanto `FirebaseFirestore` como un modulo Core que define un tipo con nombre generico, **calificar el tipo con el nombre del modulo**:
+
+```swift
+// En FirestorePaymentRepository.swift
+// INCORRECTO — ambiguo con FirebaseFirestore.Transaction
+public func getTransactions(by paymentId: String) async throws -> [Transaction]
+
+// CORRECTO
+public func getTransactions(by paymentId: String) async throws -> [PaymentsCore.Transaction]
+```
+
+### Nombres a evitar (o calificar) en modulos Core
+
+Si un modulo Core define alguno de estos nombres, documentar la ambiguedad en la guia del modulo:
+
+- `Transaction` (colisiona con `FirebaseFirestore.Transaction`)
+- `Error` (colisiona con `Swift.Error`)
+- `Query` (colisiona con `FirebaseFirestore.Query`)
+- `Snapshot` (colisiona con `FirebaseFirestore.DocumentSnapshot`, `QuerySnapshot`)
+- `FieldValue` (colisiona con `FirebaseFirestore.FieldValue`)

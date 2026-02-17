@@ -1,8 +1,8 @@
 # Modulo de Pagos — Guia de Implementacion iOS
 
-> Guia tecnica para implementar el modulo de pagos en la app iOS.
-> El modelo de datos (`PaymentsCore`) ya existe en el packages repo.
-> Falta: `FirestorePaymentRepository`, `PaymentDependencies`, y el modulo de presentacion.
+> Estado: **Implementado** (v1.3.2).
+> El modelo `Payment` fue migrado, el repositorio Firestore creado, las dependencias registradas,
+> y la integracion con `MemberFormView` y `PaymentHistoryView` completada.
 
 ---
 
@@ -13,84 +13,103 @@
 ```mermaid
 flowchart TD
     subgraph packages ["Packages Repo"]
-        PaymentsCore["PaymentsCore\n(modelo, protocolos)"]
+        MembersCore["MembersCore\n(MembershipPlanSnapshot)"]
+        PaymentsCore["PaymentsCore\n(Payment, enums, protocolos)"]
         FirestorePaymentRepo["FirebaseVendor\nFirestorePaymentRepository"]
         PaymentDeps["PlatformAppiOS\nPaymentDependencies"]
+        MembersCore --> PaymentsCore
         PaymentsCore --> FirestorePaymentRepo
         FirestorePaymentRepo --> PaymentDeps
     end
 
     subgraph app ["App Repo"]
-        PaymentViewData["PaymentViewData"]
-        PaymentVM["PaymentViewModel"]
-        PaymentForm["PaymentFormView"]
+        PaymentLocal["PaymentLocal\n(SwiftData)"]
+        MemberVM["MemberViewModel\n(pago integrado)"]
+        MemberForm["MemberFormView\n(seccion pago)"]
         PaymentHistory["PaymentHistoryView"]
-        MemberForm["MemberFormView\n(integracion)"]
-        PaymentDeps --> PaymentVM
-        PaymentViewData --> PaymentVM
-        PaymentVM --> PaymentForm
-        PaymentVM --> PaymentHistory
-        PaymentVM --> MemberForm
+        PaymentDeps --> MemberVM
+        PaymentDeps --> PaymentHistory
+        MemberVM --> MemberForm
+        MemberVM --> PaymentHistory
     end
 ```
 
 ---
 
-## Paso 1: FirestorePaymentRepository (Packages Repo)
+## Implementacion completada
 
-**Ruta**: `Packages/Vendors/Sources/FirebaseVendor/Services/Payments/FirestorePaymentRepository.swift`
+### PaymentsCore (modelo migrado)
 
-El protocolo `PaymentRepository` ya existe en `PaymentsCore/Payment.swift`. Falta la implementacion.
+**Ruta**: `Packages/PlatformCore/Sources/PaymentsCore/Payment.swift`
 
-### Patron a seguir
+Cambios realizados respecto al modelo original:
 
-Usar el mismo patron de encode/decode manual que `FirestoreMemberRepository` y `FirestoreCheckInRepository`:
+| Campo | Antes | Despues | Razon |
+|-------|-------|---------|-------|
+| `memberId` | `String?` (opcional) | `String` (requerido) | Todo cobro se vincula a un miembro |
+| `userId` | `String` (requerido) | `String?` (opcional) | Muchos miembros no tienen cuenta en la app |
+| `membershipPlanSnapshot` | No existia | `MembershipPlanSnapshot?` | Captura estado del plan al cobrar membresia |
+| `registeredBy` | No existia | `String` | UID del admin que registro el cobro (auditoria) |
+| `Sendable` | Faltaba | Agregado | En `Payment`, `PaymentRepository`, `PaymentService`, `PaymentError` y todos los enums |
+
+**Dependencia agregada**: `PaymentsCore` ahora depende de `MembersCore` para usar `MembershipPlanSnapshot`.
 
 ```swift
-actor FirestorePaymentRepository: PaymentRepository {
-    private let db = Firestore.firestore()
-    private let collectionName = "payments"
+// PlatformCore/Package.swift
+.target(
+    name: "PaymentsCore",
+    dependencies: [
+        .product(name: "LoggingFoundation", package: "PlatformFoundation"),
+        .product(name: "UtilsFoundation", package: "PlatformFoundation"),
+        "MembersCore"  // <-- agregado
+    ]
+),
+```
 
-    // Encode manual (Payment -> [String: Any])
-    // Decode manual (DocumentSnapshot -> Payment)
-    // Usar Timestamp para fechas
-    // Usar FieldValue.serverTimestamp() para createdAt/updatedAt
+### Metodos de pago en UI
+
+`PaymentMethod` tiene un computed property `inPersonMethods` que filtra solo los metodos para cobro en ventanilla:
+
+```swift
+public static var inPersonMethods: [PaymentMethod] {
+    [.cash, .card, .transfer]
 }
 ```
 
-### Metodos a implementar
-
-Del protocolo `PaymentRepository`:
-
-| Metodo | Descripcion |
-|--------|-------------|
-| `getPayment(by:)` | Obtener pago por ID |
-| `createPayment(_:)` | Crear nuevo pago |
-| `updatePayment(_:)` | Actualizar pago existente |
-| `getPaymentsByUser(_:)` | Pagos por userId |
-| `getPaymentsByMember(_:)` | Pagos por memberId (mas usado) |
-| `getPayments(by:)` | Pagos por status |
-| `getTransactions(by:)` | Transacciones por paymentId |
-| `createTransaction(_:)` | Crear transaccion |
-
-### Decisiones tecnicas
-
-- **Encode/decode manual**: No usar `Codable` directo porque `Timestamp` no se mapea bien automaticamente
-- **`memberId` siempre requerido**: Validar en el repository antes de escribir
-- **`membershipPlanSnapshot`**: Almacenar como `Map` en Firestore (misma estructura que en `members`)
-- **Ordenamiento**: `getPaymentsByMember` ordena por `createdAt` descendente
-
-### Dependencia en `Package.swift` de Vendors
-
-Agregar `PaymentsCore` a las dependencias del target `FirebaseVendor`:
-
-```swift
-.product(name: "PaymentsCore", package: "PlatformCore")
-```
+Los metodos `stripe`, `applePay`, `googlePay` se mantienen para uso futuro pero NO se muestran en la UI.
 
 ---
 
-## Paso 2: PaymentDependencies (Packages Repo)
+### FirestorePaymentRepository
+
+**Ruta**: `Packages/Vendors/Sources/FirebaseVendor/Services/Payments/FirestorePaymentRepository.swift`
+
+- `actor` con encode/decode manual (patron identico a `FirestoreCheckInRepository`)
+- Coleccion: `payments`
+- `Timestamp` para todas las fechas
+- `membershipPlanSnapshot` se codifica/decodifica como sub-mapa (mismo patron que `FirestoreMemberRepository`)
+- Ordenamiento por `createdAt` descendente en queries de lista
+
+#### IMPORTANTE: Ambiguedad de `Transaction`
+
+`FirebaseFirestore` define su propio tipo `Transaction` (para transacciones atomicas de Firestore). `PaymentsCore` tambien define `Transaction` (modelo de transaccion de pago). Cuando ambos se importan, el compilador no puede resolver cual `Transaction` usar.
+
+**Solucion**: En `FirestorePaymentRepository`, calificar explicitamente:
+
+```swift
+// INCORRECTO — ambiguo
+public func getTransactions(by paymentId: String) async throws -> [Transaction] { ... }
+
+// CORRECTO — calificado
+public func getTransactions(by paymentId: String) async throws -> [PaymentsCore.Transaction] { ... }
+public func createTransaction(_ transaction: PaymentsCore.Transaction) async throws -> PaymentsCore.Transaction { ... }
+```
+
+**Regla general**: Cuando un modulo `XxxCore` define un tipo con nombre generico (`Transaction`, `Error`, `Status`, etc.) y se importa junto a `FirebaseFirestore` u otro framework grande, calificar con el modulo para evitar ambiguedades.
+
+---
+
+### PaymentDependencies
 
 **Ruta**: `Packages/PlatformAppiOS/Sources/PlatformAppiOS/Dependencies/PaymentDependencies/PaymentDependencies.swift`
 
@@ -111,127 +130,78 @@ public extension DependencyValues {
 }
 ```
 
-> Nota: Si el directorio `Dependencies/` esta en `.gitignore`, usar `git add -f` para forzar.
+> **Nota**: El directorio `Dependencies/` esta en `.gitignore` del packages repo. Se debe usar `git add -f` para forzar el staging.
 
 ---
 
-## Paso 3: PaymentViewData (App Repo)
+### PaymentLocal (SwiftData)
 
-**Ruta**: `SajaruBox/App/Presentation/PaymentModule/PaymentViewData.swift`
+**Ruta**: `SajaruBox/App/Data/Local/PaymentLocal.swift`
+
+| Campo | Tipo | Notas |
+|-------|------|-------|
+| `memberId` | `String` | Requerido |
+| `userId` | `String?` | Opcional |
+| `registeredBy` | `String` | UID del admin |
+| `membershipPlanSnapshotJSON` | `String?` | Serializado como JSON (mismo patron que `MemberLocal`) |
+| `desc` | `String?` | Nombre `desc` en lugar de `description` para evitar conflicto con `CustomStringConvertible` |
+
+Imports requeridos:
 
 ```swift
-struct PaymentViewData {
-    var payments: [Payment] = []
-    var isLoading: Bool = false
-    var errorMessage: String?
-    var successMessage: String?
-    var showPaymentForm: Bool = false
-}
+import Foundation
+import SwiftData
+import PaymentsCore
+import MembersCore   // Para MembershipPlanSnapshot en toDomain()/fromDomain()
+import DataSyncCore
 ```
-
-### Campos del formulario de cobro
-
-| Campo | Tipo | Descripcion |
-|-------|------|-------------|
-| `selectedType` | `PaymentType` | membership, day_pass, product, service |
-| `selectedMethod` | `PaymentMethod` | cash, card, transfer |
-| `amount` | `Double` | Monto (auto-llenado si es membership) |
-| `description` | `String` | Concepto o descripcion |
-| `selectedPlanId` | `String?` | Plan seleccionado (solo si type == membership) |
 
 ---
 
-## Paso 4: PaymentViewModel (App Repo)
+### Integracion con MemberFormView
 
-**Ruta**: `SajaruBox/App/Presentation/PaymentModule/PaymentViewModel.swift`
+La seccion de membresia ahora aparece tanto en modo creacion como en modo edicion.
 
-### Dependencias
+Nuevas secciones agregadas:
+
+1. **Membresia actual** (solo en edicion): Muestra estado, plan, fecha de vencimiento y visitas restantes del miembro
+2. **Asignar nuevo plan** (siempre visible): Picker de plan, fecha de inicio
+3. **Cobro** (solo si se selecciono un plan): Picker segmentado de metodo de pago (Efectivo/Tarjeta/Transferencia) + monto auto-llenado
+
+### Integracion con MemberViewModel
+
+- `@Dependency(\.paymentRepository)` inyectado
+- `@Published var formPaymentMethod: PaymentMethod = .cash`
+- En `performSave()` modo creacion: si hay plan seleccionado, crea `Payment` tipo `.membership` despues de crear el miembro
+- En `performSave()` modo edicion: si se selecciona un plan nuevo, crea `Payment` y actualiza la membresia del miembro
+
+---
+
+### PaymentHistoryView
+
+**Ruta**: `SajaruBox/App/Presentation/MembersModule/PaymentHistoryView.swift`
+
+Vista accesible desde el context menu del miembro en `MembersView` ("Historial de pagos").
+
+#### IMPORTANTE: Import de Combine
+
+El `PaymentHistoryViewModel` usa `ObservableObject` y `@Published`. En iOS 26 / Xcode 26, estos requieren `import Combine` explicito. Sin el import, el compilador muestra:
+
+```
+error: type 'PaymentHistoryViewModel' does not conform to protocol 'ObservableObject'
+error: static subscript ... is not available due to missing import of defining module 'Combine'
+```
+
+**Regla**: Todo archivo que declare una clase `ObservableObject` con `@Published` debe incluir `import Combine`.
 
 ```swift
-@MainActor
-final class PaymentViewModel: ObservableObject {
-    @Dependency(\.paymentRepository) private var paymentRepository
-    @Dependency(\.memberRepository) private var memberRepository
-    @Dependency(\.membershipPlanRepository) private var planRepository
-    @Dependency(\.currentUser) private var currentUser
-
-    @Published var data = PaymentViewData()
-    // ... form fields
-}
+import SwiftUI
+import Combine       // <-- REQUERIDO para ObservableObject + @Published
+import SajaruUI
+import PaymentsCore
+import MembersCore
+import Dependencies
 ```
-
-### Metodos principales
-
-| Metodo | Descripcion |
-|--------|-------------|
-| `loadPayments(for memberId:)` | Cargar historial de pagos del miembro |
-| `registerMembershipPayment(member:planId:method:startDate:)` | Cobrar membresia: crea Payment + actualiza Member |
-| `registerDayPassPayment(member:amount:method:)` | Cobrar pase de dia |
-| `registerProductPayment(member:amount:description:method:)` | Cobrar producto/servicio |
-
-### Flujo de `registerMembershipPayment`
-
-```
-1. Obtener plan por ID
-2. Crear snapshot del plan
-3. Crear Payment(type: .membership, status: .completed, membershipPlanSnapshot: snapshot)
-4. Actualizar Member con nueva membresia (status, snapshot, fechas)
-5. Si tenia membresia activa previa: marcarla como expired primero
-6. Guardar Payment en Firestore
-7. Guardar Member actualizado en Firestore
-8. Mostrar confirmacion
-```
-
----
-
-## Paso 5: Integracion con MemberFormView
-
-El formulario de edicion de miembros (`MemberFormView`) debe incluir la seccion de membresia
-**tambien en modo edicion** (actualmente solo aparece en modo creacion).
-
-### Cambios necesarios
-
-1. Eliminar la condicion `if !viewModel.isEditing` que oculta la seccion de membresia
-2. Agregar seccion de metodo de pago cuando se selecciona un plan
-3. Al guardar, si se selecciono un plan nuevo: llamar a `registerMembershipPayment` en vez de solo `updateMember`
-
-### Seccion de pago en el formulario
-
-Cuando el admin selecciona un plan para asignar/renovar:
-
-```
-[ Seccion: Membresia ]
-  Plan: [Picker con planes activos]
-  Fecha inicio: [DatePicker]
-
-[ Seccion: Pago ] (solo aparece si se selecciono plan)
-  Metodo: [Segmented: Efectivo | Tarjeta | Transferencia]
-  Monto: $350.00 MXN (auto-llenado desde el plan, no editable)
-```
-
----
-
-## Paso 6: PaymentHistoryView (App Repo)
-
-**Ruta**: `SajaruBox/App/Presentation/PaymentModule/PaymentHistoryView.swift`
-
-Vista que muestra el historial de pagos de un miembro. Se puede acceder desde:
-- Perfil del miembro (vista admin)
-- Perfil propio (vista member en la app)
-
-### Estructura de la lista
-
-```
-| Fecha        | Concepto       | Monto  | Metodo      | Estado     |
-|--------------|----------------|--------|-------------|------------|
-| 15/Feb/2026  | Mensualidad    | $350   | Efectivo    | Completado |
-| 01/Feb/2026  | Visita         | $30    | Efectivo    | Completado |
-```
-
-### Permisos
-
-- **Admin/Recepcionista**: Ve historial de cualquier miembro
-- **Member**: Solo ve su propio historial (si esta vinculado)
 
 ---
 
@@ -245,55 +215,43 @@ Vista que muestra el historial de pagos de un miembro. Se puede acceder desde:
 
 ---
 
-## Migracion necesaria en PaymentsCore
+## Errores comunes y soluciones
 
-El modelo `Payment` actual en `PaymentsCore/Payment.swift` tiene desalineaciones con `schema.md` que se deben corregir **antes** de implementar el modulo.
+### 1. `Transaction` ambiguo
 
-### Campos a corregir
+**Error**: `'Transaction' is ambiguous for type lookup in this context`
 
-| Campo | Estado actual | Debe ser | Accion |
-|-------|-------------|----------|--------|
-| `userId` | `String` (requerido) | `String?` (opcional) | Cambiar a opcional — muchos miembros no tienen cuenta |
-| `memberId` | `String?` (opcional) | `String` (requerido) | Cambiar a requerido — todo cobro se vincula a un miembro |
-| `membershipPlanSnapshot` | No existe | `MembershipPlanSnapshot?` | Agregar — necesario para pagos tipo `membership` |
-| `registeredBy` | No existe | `String` | Agregar — UID del admin que registro el cobro (auditoria) |
+**Causa**: `FirebaseFirestore.Transaction` (transacciones atomicas) vs `PaymentsCore.Transaction` (modelo de pago).
 
-### Enums a ajustar
+**Solucion**: Calificar como `PaymentsCore.Transaction` en archivos que importan `FirebaseFirestore`.
 
-| Enum | Valor | Accion |
-|------|-------|--------|
-| `PaymentMethod.stripe` | Existe | Mantener (uso futuro), pero no mostrar en UI por ahora |
-| `PaymentMethod.applePay` | Existe | Mantener (uso futuro), pero no mostrar en UI por ahora |
-| `PaymentMethod.googlePay` | Existe | Mantener (uso futuro), pero no mostrar en UI por ahora |
-| `PaymentType.guestInvite` | Existe | Evaluar si se necesita o eliminar |
+### 2. `ObservableObject` no disponible
 
-### Conformancias faltantes
+**Error**: `type 'Xxx' does not conform to protocol 'ObservableObject'` + `missing import of defining module 'Combine'`
 
-| Protocolo | `Payment` | `PaymentRepository` | `PaymentService` |
-|-----------|-----------|--------------------:|------------------:|
-| `Sendable` | Falta | Falta | Falta |
-| `CaseIterable` en enums | OK en `PaymentMethod` | — | — |
+**Causa**: `import SwiftUI` no siempre re-exporta `Combine` en iOS 26.
 
-### Impacto en PaymentLocal (app repo)
+**Solucion**: Agregar `import Combine` al archivo.
 
-Al modificar el modelo `Payment`, tambien se debe actualizar:
-- `App/Data/Local/PaymentLocal.swift` — agregar campos nuevos (`registeredBy`, `membershipPlanSnapshotJSON`)
-- `toDomain()` y `fromDomain(_:)` — mapear los nuevos campos
-- Cambiar `userId` de requerido a opcional y `memberId` de opcional a requerido
+### 3. Dependencies en `.gitignore`
+
+**Error**: `git add` ignora archivos en `Dependencies/` del packages repo.
+
+**Solucion**: Usar `git add -f` para forzar.
 
 ---
 
 ## Checklist de implementacion
 
-- [ ] **Migrar modelo** `Payment` en `PaymentsCore` (corregir campos, agregar `Sendable`)
-- [ ] **Actualizar** `PaymentLocal` en app repo (nuevos campos)
-- [ ] `FirestorePaymentRepository` en `FirebaseVendor` (actor, encode/decode manual)
-- [ ] Agregar `PaymentsCore` a dependencias de `FirebaseVendor` en `Package.swift`
-- [ ] `PaymentDependencies` en `PlatformAppiOS`
-- [ ] `PaymentViewData` en app
-- [ ] `PaymentViewModel` en app
-- [ ] `PaymentFormView` (formulario de cobro)
-- [ ] `PaymentHistoryView` (historial de pagos)
-- [ ] Integrar seccion de pago en `MemberFormView` (modo edicion)
-- [ ] Agregar tab o boton de "Historial de pagos" en perfil de miembro
-- [ ] Commit en AMBOS repos
+- [x] Migrar modelo `Payment` en `PaymentsCore` (campos, `Sendable`, dependencia a `MembersCore`)
+- [x] Actualizar `PaymentLocal` en app repo (nuevos campos, JSON snapshot)
+- [x] `FirestorePaymentRepository` en `FirebaseVendor` (actor, encode/decode manual)
+- [x] Agregar `PaymentsCore` a dependencias de `FirebaseVendor` en `Package.swift`
+- [x] `PaymentDependencies` en `PlatformAppiOS`
+- [x] Integrar pago en `MemberViewModel.performSave()` (creacion y edicion)
+- [x] Seccion de membresia en `MemberFormView` modo edicion + picker de metodo de pago
+- [x] `PaymentHistoryView` con lista de pagos por miembro
+- [x] Acceso a historial desde context menu en `MembersView`
+- [x] Commit en AMBOS repos
+- [ ] Pendiente: `PaymentFormView` independiente (cobros sin membresia: pase de dia, producto, servicio)
+- [ ] Pendiente: Tab de historial de pagos global (admin)
