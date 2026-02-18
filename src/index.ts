@@ -271,7 +271,7 @@ const TOPIC_MAP: Record<string, string | string[]> = {
 // ── Servidor MCP ──────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: "sajarubox-mcp", version: "1.5.0" },
+  { name: "sajarubox-mcp", version: "1.6.0" },
   { capabilities: { resources: {}, tools: {} } }
 );
 

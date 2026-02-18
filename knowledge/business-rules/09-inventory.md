@@ -37,21 +37,34 @@ Ambos se almacenan en la misma coleccion `products` y se diferencian por el camp
 
 ```mermaid
 flowchart TD
-    Start([Admin abre tab Inventario]) --> PressAdd["Presiona +"]
+    Start([Admin abre tab Inventario]) --> PressAdd["Presiona + o 'Agregar nuevo producto'"]
     PressAdd --> ShowForm["Sheet: ProductFormView"]
-    ShowForm --> FillInfo["Llenar nombre, precio, categoria"]
+    ShowForm --> FillInfo["Llenar nombre, costo, precio venta, categoria"]
     FillInfo --> IsService{"Categoria = service?"}
     IsService -->|Si| SkipStock["Stock = 0 (oculto en UI)"]
     IsService -->|No| FillStock["Llenar stock inicial"]
-    FillStock --> ClickSave["Presiona Crear"]
-    SkipStock --> ClickSave
-    ClickSave --> Validate{"Validaciones OK?"}
-    Validate -->|No| ShowErrors["Errores inline"]
+    FillStock --> ChooseAction{"Que boton presiona?"}
+    SkipStock --> ChooseAction
+    ChooseAction -->|"Crear (toolbar)"| Validate
+    ChooseAction -->|"Guardar y agregar otro"| Validate
+    Validate{"Validaciones OK?"} -->|No| ShowErrors["Errores inline"]
     ShowErrors --> FillInfo
     Validate -->|Si| SaveFirestore["productRepository.createProduct()"]
-    SaveFirestore -->|OK| Success["Toast: Producto creado"]
     SaveFirestore -->|Error| ShowNetworkError["Toast: Error al guardar"]
+    SaveFirestore -->|OK, Crear| CloseSheet["Cierra sheet + Toast"]
+    SaveFirestore -->|OK, Agregar otro| ResetForm["Limpia campos, mantiene categoria, muestra banner verde"]
+    ResetForm --> FillInfo
 ```
+
+### Guardar y agregar otro
+
+Al presionar "Guardar y agregar otro":
+1. El producto se guarda en Firestore
+2. Los campos del formulario se limpian
+3. La categoria seleccionada se mantiene (para carga masiva de la misma categoria)
+4. Un banner verde confirma: "NombreProducto guardado"
+5. El sheet permanece abierto para capturar el siguiente producto
+6. Solo disponible en modo creacion (no al editar)
 
 ---
 
@@ -75,12 +88,39 @@ flowchart TD
 
 ---
 
+## Precio de costo y margen
+
+Cada producto tiene dos precios:
+- **Costo** (`costPrice`): lo que el gimnasio pago por el producto
+- **Venta** (`price`): precio al publico
+
+Metricas calculadas automaticamente:
+- **Ganancia por unidad**: `price - costPrice`
+- **Margen %**: `(price - costPrice) / price * 100`
+
+El margen se muestra en la lista de productos (solo admin/recepcionista) y en el formulario al editar/crear.
+
+---
+
+## Historial de precios
+
+Cada vez que se edita un producto y cambia el `price` o `costPrice`, el sistema automaticamente:
+1. Guarda los valores **anteriores** en `priceHistory` junto con la fecha y el UID del admin
+2. Actualiza el producto con los nuevos valores
+
+El historial es **inmutable**: nunca se editan ni eliminan entradas.
+
+Se muestra en el formulario de edicion como una seccion "Historial de precios" (ultimos 10 cambios, orden mas reciente primero).
+
+---
+
 ## Validaciones
 
 | Campo | Regla | Mensaje |
 |-------|-------|---------|
 | Nombre | Requerido, no vacio | "El nombre es requerido" |
-| Precio | Mayor a 0 | "Ingresa un precio valido mayor a 0" |
+| Costo | >= 0 (si se ingresa) | "Ingresa un costo valido" |
+| Precio venta | Mayor a 0 | "Ingresa un precio de venta valido mayor a 0" |
 | Stock | >= 0 (solo productos) | "Ingresa una cantidad valida" |
 
 ---
@@ -108,6 +148,11 @@ flowchart TD
 6. El precio siempre es en MXN (por ahora)
 7. El SKU es opcional y para uso interno del admin
 8. Las imagenes de producto son una funcionalidad futura
+9. Todo producto tiene `costPrice` (costo) y `price` (venta al publico)
+10. Al cambiar precio o costo, se genera automaticamente una entrada en `priceHistory`
+11. El historial de precios es inmutable y se almacena como array de maps en Firestore
+12. "Guardar y agregar otro" solo esta disponible en modo creacion
+13. Tap en un producto abre el formulario de edicion directamente
 
 ---
 

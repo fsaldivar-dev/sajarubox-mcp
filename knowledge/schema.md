@@ -261,22 +261,36 @@ Catalogo de productos y servicios del gimnasio. El admin puede crear, editar y d
 | `name` | String | Si | Nombre del producto o servicio |
 | `description` | String | No | Descripcion del producto |
 | `category` | String | Si | `beverages`, `food`, `supplements`, `equipment`, `apparel`, `accessories`, `service`, `other` |
-| `price` | Double | Si | Precio del producto |
+| `price` | Double | Si | Precio de venta al publico |
+| `costPrice` | Double | Si | Precio de costo (lo que pago el gimnasio). Default: 0 |
 | `currency` | String | Si | Codigo ISO 4217 (default: `MXN`) |
 | `stock` | Int | Si | Stock disponible (0 para servicios) |
 | `sku` | String | No | Codigo interno del producto |
 | `imageURL` | String | No | URL de imagen (futuro) |
 | `isActive` | Boolean | Si | Si el producto esta disponible |
+| `priceHistory` | Array\<Map\> | No | Historial de cambios de precio. Cada entrada: `{ price, costPrice, changedAt, changedBy }` |
 | `createdAt` | Timestamp | Si | Fecha de creacion |
 | `updatedAt` | Timestamp | Si | Fecha de actualizacion |
+
+### Estructura de `priceHistory` (array de maps)
+
+| Campo | Tipo | Descripcion |
+|-------|------|-------------|
+| `price` | Double | Precio de venta anterior |
+| `costPrice` | Double | Precio de costo anterior |
+| `changedAt` | Timestamp | Fecha del cambio |
+| `changedBy` | String | UID del admin que cambio el precio |
 
 ### Reglas de negocio de productos
 
 1. `name` es siempre requerido
-2. `price` debe ser mayor a 0
-3. Si `category = "service"`, el campo `stock` se ignora (no se trackea inventario)
-4. Soft delete: `isActive = false` para desactivar, nunca eliminar documentos
-5. El stock se ajusta manualmente por el admin o se descuenta al vender (futuro)
+2. `price` (venta) debe ser mayor a 0
+3. `costPrice` es lo que costo el producto al gimnasio; se usa para calcular margen
+4. Si `category = "service"`, el campo `stock` se ignora (no se trackea inventario)
+5. Soft delete: `isActive = false` para desactivar, nunca eliminar documentos
+6. El stock se ajusta manualmente por el admin o se descuenta al vender (futuro)
+7. Al cambiar `price` o `costPrice`, se agrega una entrada a `priceHistory` con los valores anteriores
+8. `priceHistory` es inmutable: nunca se editan ni eliminan entradas existentes
 
 ---
 
