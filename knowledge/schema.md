@@ -16,6 +16,7 @@
 | `app_config` | `"setup"` | Configuracion global (admin setup) | iOS |
 | `check_ins` | UUID generado | Registros de asistencia (check-in/check-out) | iOS |
 | `payments` | UUID generado | Pagos y cobros (membresias, pases de dia, productos) | iOS |
+| `products` | UUID generado | Catalogo de productos y servicios del gimnasio | iOS |
 | `classes` | Auto-generado | Clases del gimnasio | Android |
 | `classBookings` | Auto-generado | Reservas de clases | Android |
 | `classAttendance` | Auto-generado | Asistencia a clases | Android |
@@ -247,6 +248,35 @@ Documento unico que indica si ya se configuro el primer admin. Solo iOS lo gesti
 |-------|------|-----------|-------------|
 | `adminUserId` | String | Si | UID del usuario admin |
 | `createdAt` | Timestamp | Si | Fecha de creacion |
+
+---
+
+## `products/{productId}`
+
+Catalogo de productos y servicios del gimnasio. El admin puede crear, editar y desactivar productos. Los servicios son productos con `category = "service"` que no manejan stock.
+
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `id` | String | Si | UUID generado |
+| `name` | String | Si | Nombre del producto o servicio |
+| `description` | String | No | Descripcion del producto |
+| `category` | String | Si | `beverages`, `food`, `supplements`, `equipment`, `apparel`, `accessories`, `service`, `other` |
+| `price` | Double | Si | Precio del producto |
+| `currency` | String | Si | Codigo ISO 4217 (default: `MXN`) |
+| `stock` | Int | Si | Stock disponible (0 para servicios) |
+| `sku` | String | No | Codigo interno del producto |
+| `imageURL` | String | No | URL de imagen (futuro) |
+| `isActive` | Boolean | Si | Si el producto esta disponible |
+| `createdAt` | Timestamp | Si | Fecha de creacion |
+| `updatedAt` | Timestamp | Si | Fecha de actualizacion |
+
+### Reglas de negocio de productos
+
+1. `name` es siempre requerido
+2. `price` debe ser mayor a 0
+3. Si `category = "service"`, el campo `stock` se ignora (no se trackea inventario)
+4. Soft delete: `isActive = false` para desactivar, nunca eliminar documentos
+5. El stock se ajusta manualmente por el admin o se descuenta al vender (futuro)
 
 ---
 

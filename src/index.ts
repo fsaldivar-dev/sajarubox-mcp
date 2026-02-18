@@ -224,6 +224,7 @@ const TOPIC_MAP: Record<string, string | string[]> = {
   "admin-setup": "knowledge/business-rules/05-admin-setup.md",
   "membership-plans": "knowledge/business-rules/06-membership-plans.md",
   "membership-assignments": "knowledge/business-rules/07-membership-assignments.md",
+  inventory: "knowledge/business-rules/09-inventory.md",
   // iOS arquitectura
   "ios-structure": "knowledge/ios-architecture/01-project-structure.md",
   "ios-mvvm": "knowledge/ios-architecture/02-mvvm-pattern.md",
@@ -237,6 +238,7 @@ const TOPIC_MAP: Record<string, string | string[]> = {
   "ios-session": "knowledge/ios-implementation/03-session-resolver.md",
   "ios-new-module": "knowledge/ios-implementation/04-creating-new-module.md",
   "ios-theming": "knowledge/ios-implementation/05-theming-guide.md",
+  "ios-inventory": "knowledge/ios-implementation/09-inventory-module.md",
   // Bundles (multiples archivos)
   "all-business": [
     "knowledge/business-rules/01-authentication.md",
@@ -246,6 +248,7 @@ const TOPIC_MAP: Record<string, string | string[]> = {
     "knowledge/business-rules/05-admin-setup.md",
     "knowledge/business-rules/06-membership-plans.md",
     "knowledge/business-rules/07-membership-assignments.md",
+    "knowledge/business-rules/09-inventory.md",
   ],
   "all-ios-arch": [
     "knowledge/ios-architecture/01-project-structure.md",
@@ -261,13 +264,14 @@ const TOPIC_MAP: Record<string, string | string[]> = {
     "knowledge/ios-implementation/03-session-resolver.md",
     "knowledge/ios-implementation/04-creating-new-module.md",
     "knowledge/ios-implementation/05-theming-guide.md",
+    "knowledge/ios-implementation/09-inventory-module.md",
   ],
 };
 
 // ── Servidor MCP ──────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: "sajarubox-mcp", version: "1.4.0" },
+  { name: "sajarubox-mcp", version: "1.5.0" },
   { capabilities: { resources: {}, tools: {} } }
 );
 
