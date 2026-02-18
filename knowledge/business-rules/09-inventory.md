@@ -2,7 +2,7 @@
 
 > El admin gestiona un catalogo de productos y servicios del gimnasio.
 > Los productos tienen stock trackeable. Los servicios no manejan stock.
-> La venta con cobro integrado (crear Payment + reducir stock) es una fase futura.
+> La venta de productos crea Payment tipo `product`/`service` y reduce stock automaticamente.
 > Para cobros, ver `08-payments.md`.
 
 ---
@@ -156,10 +156,15 @@ Se muestra en el formulario de edicion como una seccion "Historial de precios" (
 
 ---
 
+## Implementado
+
+1. **Venta con cobro integrado**: SaleSheet con carrito, seleccion de miembro, Payment tipo `product`/`service` + reduccion automatica de stock. Ver `08-payments.md` para detalles del flujo.
+
+---
+
 ## Pendiente (no implementado)
 
-1. **Venta con cobro integrado**: al vender, crear Payment tipo `product`/`service` + reducir stock automaticamente
-2. **Movimientos de inventario**: historial de entradas, salidas y ajustes (modelo `Inventory` ya existe en InventoryCore)
-3. **Alertas de stock bajo**: notificar cuando stock < umbral configurable
-4. **Imagenes de producto**: subir y mostrar fotos de productos
-5. **Reporte de inventario**: valor total del inventario, productos mas vendidos
+1. **Movimientos de inventario**: historial de entradas, salidas y ajustes (modelo `Inventory` ya existe en InventoryCore)
+2. **Alertas de stock bajo**: notificar cuando stock < umbral configurable
+3. **Imagenes de producto**: subir y mostrar fotos de productos
+4. **Reporte de inventario**: valor total del inventario, productos mas vendidos

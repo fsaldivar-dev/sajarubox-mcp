@@ -91,6 +91,12 @@ const RESOURCES = [
     description: "Snapshot inmutable, check-in, renovacion, vencimiento, planes familiares",
     file: "knowledge/business-rules/07-membership-assignments.md",
   },
+  {
+    uri: "sajarubox://business/payments",
+    name: "Reglas: Pagos y cobros",
+    description: "Tipos de pago, cobro de membresia, pase de dia, venta de productos/servicios, punto de venta",
+    file: "knowledge/business-rules/08-payments.md",
+  },
 
   // Arquitectura iOS (para IA)
   {
@@ -224,6 +230,7 @@ const TOPIC_MAP: Record<string, string | string[]> = {
   "admin-setup": "knowledge/business-rules/05-admin-setup.md",
   "membership-plans": "knowledge/business-rules/06-membership-plans.md",
   "membership-assignments": "knowledge/business-rules/07-membership-assignments.md",
+  payments: "knowledge/business-rules/08-payments.md",
   inventory: "knowledge/business-rules/09-inventory.md",
   // iOS arquitectura
   "ios-structure": "knowledge/ios-architecture/01-project-structure.md",
@@ -248,6 +255,7 @@ const TOPIC_MAP: Record<string, string | string[]> = {
     "knowledge/business-rules/05-admin-setup.md",
     "knowledge/business-rules/06-membership-plans.md",
     "knowledge/business-rules/07-membership-assignments.md",
+    "knowledge/business-rules/08-payments.md",
     "knowledge/business-rules/09-inventory.md",
   ],
   "all-ios-arch": [
@@ -271,7 +279,7 @@ const TOPIC_MAP: Record<string, string | string[]> = {
 // ── Servidor MCP ──────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: "sajarubox-mcp", version: "1.6.0" },
+  { name: "sajarubox-mcp", version: "1.7.0" },
   { capabilities: { resources: {}, tools: {} } }
 );
 
@@ -302,7 +310,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "get_context",
       description:
-        "Obtiene documentacion de SajaruBox por tema. Topics disponibles: schema, roles, rules, platforms, sprint, authentication, user-roles, memberships, members, admin-setup, membership-plans, membership-assignments, ios-structure, ios-mvvm, ios-di, ios-navigation, ios-design-system, ios-sync, ios-firestore, ios-auth, ios-session, ios-new-module, ios-theming, all-business, all-ios-arch, all-ios-impl",
+        "Obtiene documentacion de SajaruBox por tema. Topics disponibles: schema, roles, rules, platforms, sprint, authentication, user-roles, memberships, members, admin-setup, membership-plans, membership-assignments, payments, inventory, ios-structure, ios-mvvm, ios-di, ios-navigation, ios-design-system, ios-sync, ios-firestore, ios-auth, ios-session, ios-new-module, ios-theming, ios-inventory, all-business, all-ios-arch, all-ios-impl",
       inputSchema: {
         type: "object",
         properties: {

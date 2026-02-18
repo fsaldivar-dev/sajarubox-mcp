@@ -17,6 +17,10 @@ sajaru-box-ios/
     │   ├── InventoryViewModel.swift    # CRUD, filtros, stock
     │   ├── InventoryView.swift         # Lista principal (tab Inventario)
     │   └── ProductFormView.swift       # Formulario de creacion/edicion
+    ├── SalesModule/
+    │   ├── SaleViewData.swift          # Carrito, miembro, estado de venta
+    │   ├── SaleViewModel.swift         # Logica de venta (carrito + Payment + stock)
+    │   └── SaleSheet.swift             # UI del punto de venta
     └── HomeModule/
         └── HomeView.swift              # Tab "Inventario" (reemplazo del placeholder)
 
@@ -38,28 +42,42 @@ sajarubox-mobile-ios-packages/
 flowchart LR
     subgraph ui [Capa UI]
         InventoryView --> ProductFormView
+        InventoryView --> SaleSheet
+        QuickActionSheet --> SaleSheet
     end
 
-    subgraph vm [ViewModel]
+    subgraph vm [ViewModels]
         InventoryViewModel
+        SaleViewModel
     end
 
     subgraph deps [Dependencias]
         ProductRepo["@Dependency productRepository"]
+        MemberRepo["@Dependency memberRepository"]
+        PaymentRepo["@Dependency paymentRepository"]
         CurrentUser["@Dependency currentUser"]
     end
 
     subgraph infra [Infraestructura]
         FirestoreProductRepo["FirestoreProductRepository (actor)"]
-        Firestore["Firestore: products/"]
+        FirestorePaymentRepo["FirestorePaymentRepository (actor)"]
+        Firestore["Firestore: products/ + payments/"]
     end
 
     InventoryView -->|"@StateObject"| InventoryViewModel
+    InventoryView -->|"@StateObject"| SaleViewModel
     ProductFormView -->|"@ObservedObject"| InventoryViewModel
+    SaleSheet -->|"@ObservedObject"| SaleViewModel
     InventoryViewModel --> ProductRepo
     InventoryViewModel --> CurrentUser
+    SaleViewModel --> ProductRepo
+    SaleViewModel --> MemberRepo
+    SaleViewModel --> PaymentRepo
+    SaleViewModel --> CurrentUser
     ProductRepo --> FirestoreProductRepo
+    PaymentRepo --> FirestorePaymentRepo
     FirestoreProductRepo --> Firestore
+    FirestorePaymentRepo --> Firestore
 ```
 
 ---
@@ -193,9 +211,11 @@ Chips horizontales scrolleables dentro de la List (como Section sin fondo). Solo
 | **Tap en fila** | **Abrir formulario de edicion** |
 | Swipe izquierda (trailing) | Desactivar/Activar |
 | Swipe derecha (leading) | Editar |
-| Context menu | Editar / Agregar stock / Quitar stock / Desactivar |
+| Context menu | Vender / Editar / Agregar stock / Quitar stock / Desactivar |
 | Pull to refresh | Recargar lista |
+| Toolbar carrito | Abrir SaleSheet (nueva venta) |
 | Toolbar "+" | Abrir formulario creacion |
+| Boton "Nueva venta" (en lista) | Abrir SaleSheet |
 | Boton "Agregar nuevo producto" (en lista) | Abrir formulario creacion |
 | Busqueda | `.searchable` por nombre, descripcion, SKU |
 
@@ -255,6 +275,93 @@ var filteredProducts: [Product] {
 
 ---
 
+## SalesModule (Punto de Venta)
+
+### Estructura
+
+```swift
+// SaleViewData.swift
+struct SaleCartItem: Identifiable, Equatable {
+    let product: Product
+    var quantity: Int
+    var subtotal: Double { product.price * Double(quantity) }
+    var isValid: Bool // stock check para productos, siempre true para servicios
+}
+
+struct SaleViewData {
+    var products: [Product]         // catalogo activo
+    var members: [Member]           // todos los miembros activos
+    var cartItems: [SaleCartItem]   // carrito actual
+    var selectedMember: Member?     // miembro para la venta
+    var paymentMethod: PaymentMethod // efectivo/tarjeta/transferencia
+    var searchMemberText: String    // busqueda de miembro
+    var searchProductText: String   // busqueda de producto
+    var selectedCategory: ProductCategory? // filtro
+    var total: Double               // suma de subtotales
+    var cartIsValid: Bool           // !cart.isEmpty && member != nil
+}
+```
+
+### SaleViewModel - Dependencias
+
+```swift
+@Dependency(\.productRepository) var productRepository
+@Dependency(\.memberRepository) var memberRepository
+@Dependency(\.paymentRepository) var paymentRepository
+@Dependency(\.currentUser) var currentUser
+```
+
+### SaleViewModel - Metodos principales
+
+| Metodo | Descripcion |
+|--------|-------------|
+| `loadProducts()` | Carga productos activos |
+| `loadMembers()` | Carga miembros activos |
+| `addToCart(_:)` | Agrega producto o incrementa cantidad |
+| `removeFromCart(_:)` | Decrementa cantidad o elimina del carrito |
+| `removeItemCompletely(_:)` | Elimina item del carrito |
+| `clearCart()` | Vacia el carrito |
+| `selectMember(_:)` | Selecciona miembro |
+| `preselectMember(_:)` | Pre-selecciona miembro (desde QuickActionSheet) |
+| `preselectProduct(_:)` | Pre-agrega producto al carrito (desde context menu) |
+| `requestConfirmation()` | Muestra alert de confirmacion |
+| `confirmSale()` | Procesa la venta: crea Payments + reduce stock |
+
+### SaleSheet - Secciones UI
+
+| Seccion | Contenido |
+|---------|-----------|
+| Miembro | Busqueda por nombre/telefono, chip del miembro seleccionado |
+| Carrito | Items con +/- cantidad, subtotal por item, boton vaciar |
+| Productos | Catalogo con filtro por categoria y busqueda, boton +/- por producto |
+| Metodo de pago | Segmented control (Efectivo/Tarjeta/Transferencia) |
+| Total | Total general + boton "Cobrar $X" |
+
+### Puntos de entrada
+
+| Origen | Pre-seleccion |
+|--------|--------------|
+| `InventoryView` toolbar (carrito) | Ninguna |
+| `InventoryView` context menu "Vender" | Producto en carrito |
+| `InventoryView` boton "Nueva venta" | Ninguna |
+| `QuickActionSheet` "Vender producto" | Miembro seleccionado |
+
+### Flujo de procesamiento (confirmSale)
+
+```
+Por cada SaleCartItem:
+  1. Crear Payment(type: .product/.service, amount: subtotal, description: "Nombre xN")
+  2. Si es producto fisico: updateProduct(stock: stock - quantity)
+  3. Si es servicio: no modificar stock
+
+Al terminar:
+  - Toast: "Venta registrada: N articulos por $Total"
+  - Cerrar sheet
+  - Recargar productos en InventoryView
+```
+
+---
+
 ## Implementado
 
 - CRUD completo de productos y servicios
@@ -265,13 +372,15 @@ var filteredProducts: [Product] {
 - Filtro por categoria (chips dentro de la List)
 - Badge de stock (verde/rojo) y badge de margen (%) en cada fila
 - Boton "Agregar nuevo producto" visible en la lista
+- **Punto de venta (SaleSheet)**: carrito con seleccion de productos y miembro, cobro con Payment + reduccion automatica de stock
+- **Integracion en QuickActionSheet**: opcion "Vender producto" con miembro pre-seleccionado
+- **Context menu "Vender"**: abre SaleSheet con producto pre-seleccionado en carrito
 
 ## Pendiente
 
-1. **Venta con cobro**: al vender, crear Payment tipo `product`/`service` + reducir stock
-2. **Movimientos de inventario**: historial (modelo `Inventory` ya existe en InventoryCore)
-3. **Alertas de stock bajo**: `getLowStockProducts(threshold:)` ya existe en el repository
-4. **Imagenes de producto**: `imageURL` existe en el modelo pero la UI no lo usa aun
+1. **Movimientos de inventario**: historial (modelo `Inventory` ya existe en InventoryCore)
+2. **Alertas de stock bajo**: `getLowStockProducts(threshold:)` ya existe en el repository
+3. **Imagenes de producto**: `imageURL` existe en el modelo pero la UI no lo usa aun
 
 ---
 

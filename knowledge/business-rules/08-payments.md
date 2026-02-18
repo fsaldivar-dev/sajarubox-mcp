@@ -187,19 +187,76 @@ Reglas:
 
 ---
 
-## Flujo: Cobro de producto o servicio
+## Flujo: Cobro de producto o servicio (Punto de Venta)
 
-Para ventas de productos (agua, suplementos) o servicios (clase personalizada).
+Para ventas de productos (agua, suplementos) o servicios (clase personalizada). Se presenta como un sheet "Nueva Venta" con carrito.
+
+### Diagrama
+
+```mermaid
+flowchart TD
+    Start([Admin abre SaleSheet]) --> SelectMember["Buscar y seleccionar miembro"]
+    SelectMember --> Browse["Navegar catalogo de productos"]
+    Browse --> AddToCart["Agregar producto(s) al carrito\n(+/- para ajustar cantidad)"]
+    AddToCart --> MoreProducts{"Agregar mas?"}
+    MoreProducts -->|Si| Browse
+    MoreProducts -->|No| SelectMethod["Seleccionar metodo de pago\n(efectivo/tarjeta/transferencia)"]
+    SelectMethod --> Confirm["Cobrar $Total"]
+    Confirm --> ConfirmAlert["Alert: Confirmar venta\nN articulos por $Total\na NombreMiembro"]
+    ConfirmAlert -->|Cancelar| Browse
+    ConfirmAlert -->|Cobrar| ProcessSale["Por cada item del carrito:"]
+    ProcessSale --> CreatePayment["1. Crear Payment\ntype = product/service\namount = subtotal\ndescription = Nombre xN"]
+    CreatePayment --> ReduceStock{"Es producto fisico?"}
+    ReduceStock -->|Si| UpdateStock["2. Reducir stock\nnewStock = stock - quantity"]
+    ReduceStock -->|No (servicio)| NextItem
+    UpdateStock --> NextItem{"Mas items?"}
+    NextItem -->|Si| CreatePayment
+    NextItem -->|No| Success["Toast: Venta registrada\nN articulos por $Total"]
+    ProcessSale -->|Error| ShowError["Toast: Error al procesar venta"]
+```
+
+### Puntos de entrada
+
+| Punto de entrada | Contexto | Comportamiento |
+|-----------------|----------|----------------|
+| **Tab Inventario** - toolbar carrito | Sin pre-seleccion | Abre SaleSheet vacio |
+| **Tab Inventario** - context menu "Vender" | Producto pre-seleccionado | Abre SaleSheet con producto en carrito |
+| **Tab Inventario** - boton "Nueva venta" en lista | Sin pre-seleccion | Abre SaleSheet vacio |
+| **QuickActionSheet** - "Vender producto" | Miembro pre-seleccionado | Abre SaleSheet con miembro ya asignado |
 
 ### Flujo principal
 
-1. Admin selecciona miembro
-2. Elige tipo: Producto o Servicio
-3. Ingresa descripcion y monto
-4. Selecciona metodo de pago
-5. Se crea Payment con `type = product` o `type = service`
+1. Admin abre SaleSheet (desde inventario o QuickActionSheet)
+2. Selecciona un miembro buscando por nombre o telefono
+3. Navega el catalogo de productos (con filtro por categoria y busqueda)
+4. Agrega productos al carrito con cantidad (+/- botones)
+5. Selecciona metodo de pago (efectivo, tarjeta, transferencia)
+6. Confirma el cobro
+7. Por cada item del carrito se crea un Payment individual:
+   - `type = .product` para productos fisicos
+   - `type = .service` para servicios
+   - `description = "NombreProducto xCantidad"`
+   - `amount = precio * cantidad`
+8. Si es producto fisico, se reduce el stock automaticamente
+9. Se muestra confirmacion y el sheet se cierra
 
-> Este flujo es mas simple porque no modifica la membresia del miembro.
+### Carrito
+
+- Cada producto se agrega con cantidad 1 (incrementable con +/-)
+- Productos fisicos: cantidad maxima = stock disponible
+- Servicios: cantidad maxima = 10
+- Se muestra subtotal por item y total general
+- El carrito se puede vaciar completamente
+
+### Reglas del cobro de producto
+
+1. Todo cobro requiere un miembro seleccionado
+2. Se crea UN Payment por cada producto diferente en el carrito
+3. El stock se reduce automaticamente para productos fisicos
+4. Los servicios no afectan stock
+5. El Payment se crea con `status = completed` y `completedAt = Date()`
+6. No se permite vender productos agotados (stock = 0)
+7. No se permite vender productos inactivos
 
 ---
 
@@ -249,6 +306,9 @@ Si el miembro tiene cuenta en la app y esta vinculado, puede ver su propio histo
 12. El cobro rapido de visita puede incluir de 1 a 3 visitas en una sola transaccion
 13. El cobro rapido incluye check-in automatico (primera visita del paquete se consume inmediatamente)
 14. Existen tres puntos de entrada para cobros: MemberFormView (completo), QuickActionSheet (visita rapida), PlanSelectionSheet (plan simplificado)
+15. Para cobros de producto/servicio, se crea un Payment por cada item del carrito (no un solo Payment agrupado)
+16. El cobro de producto reduce el stock automaticamente para productos fisicos
+17. Existen cuatro puntos de entrada para venta de productos: toolbar carrito (Inventario), context menu "Vender" (Inventario), boton "Nueva venta" (Inventario), "Vender producto" (QuickActionSheet)
 
 ---
 
