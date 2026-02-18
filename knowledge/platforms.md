@@ -51,11 +51,18 @@
 
 ## Web — Landing + Autoservicio
 
-**Hosting:** Firebase Hosting (estático con JS)
-**Stack:** Por definir (HTML/CSS/JS vanilla o framework ligero)
+**Repo:** `fsaldivar-dev/sajaru-box-web`
+**Branch principal:** `develop`
+**Hosting:** Firebase Hosting (estático)
+**Stack:** React 19.2.0 + Vite 7.2.4 | CSS custom con variables | Sin librería UI externa
 
 ### Features actuales
-- Landing page
+- Landing page SPA con scroll suave entre secciones
+- Video de fondo (Hero) con solución de autoplay para iOS
+- 4 secciones de contenido: Servicios, Horarios, Contacto, Música
+- Barra lateral de redes sociales (Facebook, Instagram, TikTok, WhatsApp)
+- Embed de SoundCloud (playlist "Ritmos de Combate Sajaru Box")
+- Solo modo oscuro activo (`data-theme="dark"`)
 
 ### Features únicos planeados (diferenciadores)
 - Horario público de clases (sin login)
