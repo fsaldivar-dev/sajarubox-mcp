@@ -136,6 +136,14 @@ const RESOURCES = [
     file: "knowledge/ios-architecture/06-data-sync.md",
   },
 
+  // Reglas de negocio: Clases
+  {
+    uri: "sajarubox://business/classes",
+    name: "Reglas: Clases del gimnasio",
+    description: "CRUD de clases, recurrencia, reservas, asistencia, compatibilidad cross-platform",
+    file: "knowledge/business-rules/10-classes.md",
+  },
+
   // Implementacion iOS (para devs)
   {
     uri: "sajarubox://ios-impl/firestore",
@@ -166,6 +174,12 @@ const RESOURCES = [
     name: "iOS Impl: Guia de theming",
     description: "Property wrappers, styles, crear temas nuevos",
     file: "knowledge/ios-implementation/05-theming-guide.md",
+  },
+  {
+    uri: "sajarubox://ios-impl/classes",
+    name: "iOS Impl: Modulo de clases",
+    description: "Implementacion del modulo de clases: modelos, Firestore, UI, recurrencia",
+    file: "knowledge/ios-implementation/10-classes-module.md",
   },
 ];
 
@@ -232,6 +246,7 @@ const TOPIC_MAP: Record<string, string | string[]> = {
   "membership-assignments": "knowledge/business-rules/07-membership-assignments.md",
   payments: "knowledge/business-rules/08-payments.md",
   inventory: "knowledge/business-rules/09-inventory.md",
+  classes: "knowledge/business-rules/10-classes.md",
   // iOS arquitectura
   "ios-structure": "knowledge/ios-architecture/01-project-structure.md",
   "ios-mvvm": "knowledge/ios-architecture/02-mvvm-pattern.md",
@@ -246,6 +261,7 @@ const TOPIC_MAP: Record<string, string | string[]> = {
   "ios-new-module": "knowledge/ios-implementation/04-creating-new-module.md",
   "ios-theming": "knowledge/ios-implementation/05-theming-guide.md",
   "ios-inventory": "knowledge/ios-implementation/09-inventory-module.md",
+  "ios-classes": "knowledge/ios-implementation/10-classes-module.md",
   // Bundles (multiples archivos)
   "all-business": [
     "knowledge/business-rules/01-authentication.md",
@@ -257,6 +273,7 @@ const TOPIC_MAP: Record<string, string | string[]> = {
     "knowledge/business-rules/07-membership-assignments.md",
     "knowledge/business-rules/08-payments.md",
     "knowledge/business-rules/09-inventory.md",
+    "knowledge/business-rules/10-classes.md",
   ],
   "all-ios-arch": [
     "knowledge/ios-architecture/01-project-structure.md",
@@ -273,13 +290,14 @@ const TOPIC_MAP: Record<string, string | string[]> = {
     "knowledge/ios-implementation/04-creating-new-module.md",
     "knowledge/ios-implementation/05-theming-guide.md",
     "knowledge/ios-implementation/09-inventory-module.md",
+    "knowledge/ios-implementation/10-classes-module.md",
   ],
 };
 
 // ── Servidor MCP ──────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: "sajarubox-mcp", version: "1.8.0" },
+  { name: "sajarubox-mcp", version: "1.9.0" },
   { capabilities: { resources: {}, tools: {} } }
 );
 
@@ -310,7 +328,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "get_context",
       description:
-        "Obtiene documentacion de SajaruBox por tema. Topics disponibles: schema, roles, rules, platforms, sprint, authentication, user-roles, memberships, members, admin-setup, membership-plans, membership-assignments, payments, inventory, ios-structure, ios-mvvm, ios-di, ios-navigation, ios-design-system, ios-sync, ios-firestore, ios-auth, ios-session, ios-new-module, ios-theming, ios-inventory, all-business, all-ios-arch, all-ios-impl",
+        "Obtiene documentacion de SajaruBox por tema. Topics disponibles: schema, roles, rules, platforms, sprint, authentication, user-roles, memberships, members, admin-setup, membership-plans, membership-assignments, payments, inventory, classes, ios-structure, ios-mvvm, ios-di, ios-navigation, ios-design-system, ios-sync, ios-firestore, ios-auth, ios-session, ios-new-module, ios-theming, ios-inventory, ios-classes, all-business, all-ios-arch, all-ios-impl",
       inputSchema: {
         type: "object",
         properties: {

@@ -17,9 +17,9 @@
 | `check_ins` | UUID generado | Registros de asistencia (check-in/check-out) | iOS |
 | `payments` | UUID generado | Pagos y cobros (membresias, pases de dia, productos) | iOS |
 | `products` | UUID generado | Catalogo de productos y servicios del gimnasio | iOS |
-| `classes` | Auto-generado | Clases del gimnasio | Android |
-| `classBookings` | Auto-generado | Reservas de clases | Android |
-| `classAttendance` | Auto-generado | Asistencia a clases | Android |
+| `classes` | Auto-generado | Clases del gimnasio | Android, iOS |
+| `classBookings` | Auto-generado | Reservas de clases | Android, iOS |
+| `classAttendance` | Auto-generado | Asistencia a clases | Android, iOS |
 
 ---
 
@@ -296,7 +296,9 @@ Catalogo de productos y servicios del gimnasio. El admin puede crear, editar y d
 
 ## `classes/{classId}`
 
-Clases del gimnasio. Solo Android las gestiona.
+Clases del gimnasio. Gestionada por Android e iOS. Los campos en español (`nombre`, `fecha`, etc.) son los originales de Android; iOS los mapea internamente a nombres en ingles.
+
+### Campos compartidos (Android + iOS)
 
 | Campo | Tipo | Requerido | Descripcion |
 |-------|------|-----------|-------------|
@@ -310,11 +312,29 @@ Clases del gimnasio. Solo Android las gestiona.
 | `createdAt` | Timestamp | Si | Fecha de creacion |
 | `updatedAt` | Timestamp | Si | Fecha de actualizacion |
 
+### Campos opcionales (iOS — Android los ignora)
+
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `description` | String | No | Descripcion de la clase |
+| `isActive` | Boolean | No | Soft delete (default: true). Si `false`, la clase no se muestra |
+| `recurrenceGroupId` | String | No | UUID compartido entre clases creadas en lote (recurrencia UI) |
+
+### Mapeo de campos Swift ↔ Firestore
+
+| Swift (iOS) | Firestore | Tipo |
+|-------------|-----------|------|
+| `name` | `nombre` | String |
+| `date` | `fecha` | Timestamp |
+| `startTime` | `horaInicio` | String |
+| `durationMinutes` | `duracionMin` | Int |
+| `maxCapacity` | `capacidadMax` | Int |
+
 ---
 
 ## `classBookings/{bookingId}`
 
-Reservas de clases. Solo Android las gestiona.
+Reservas de clases. Gestionada por Android e iOS (lectura).
 
 | Campo | Tipo | Requerido | Descripcion |
 |-------|------|-----------|-------------|
@@ -329,15 +349,21 @@ Reservas de clases. Solo Android las gestiona.
 
 ## `classAttendance/{attendanceId}`
 
-Asistencia a clases. Solo Android las gestiona.
+Asistencia a clases. Android escribe los registros, iOS los consulta.
 
 | Campo | Tipo | Requerido | Descripcion |
 |-------|------|-----------|-------------|
 | `id` | String | Si | Auto-generado |
 | `classId` | String | Si | FK a `classes` |
-| `userId` | String | Si | FK a `users` |
+| `userId` | String | No | FK a `users` (cuenta en la app) |
 | `asistio` | Boolean | Si | Si asistio |
 | `timestamp` | Timestamp | Si | Fecha/hora del registro |
+
+### Campos opcionales (iOS — Android los ignora)
+
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `memberId` | String | No | FK a `members` (para miembros sin cuenta en la app) |
 
 ---
 
