@@ -141,6 +141,70 @@ struct MembersView: View {
 
 ---
 
+## Layout adaptable: Sidebar en iPad, Tabs en iPhone
+
+`HomeView` usa `TabView` con `.tabViewStyle(.sidebarAdaptable)` y el API moderno de `Tab` / `TabSection`. Esto permite que la misma vista se adapte automaticamente segun el dispositivo:
+
+- **iPhone**: Tab bar tradicional en la parte inferior
+- **iPad / pantallas grandes**: Sidebar a la izquierda con secciones agrupadas y el workspace del modulo seleccionado ocupa el area principal a la derecha
+
+### Estructura con Tab y TabSection
+
+```swift
+struct HomeView: View {
+    var body: some View {
+        TabView {
+            if currentUser.isAdmin || currentUser.role == .receptionist {
+                TabSection("Administración") {
+                    Tab("Miembros", systemImage: "person.3.fill") {
+                        MembersView()
+                    }
+                    Tab("Membresías", systemImage: "creditcard.fill") {
+                        MembershipPlansView()
+                    }
+                    Tab("Inventario", systemImage: "bag.fill") {
+                        InventoryView()
+                    }
+                    Tab("Clases", systemImage: "calendar.badge.clock") {
+                        ClassScheduleView()
+                    }
+                }
+            }
+
+            TabSection("Cuenta") {
+                Tab("Perfil", systemImage: "person.fill") {
+                    profileTab
+                }
+                if currentUser.isAdmin {
+                    Tab("Configuración", systemImage: "gearshape.fill") {
+                        // ...
+                    }
+                }
+            }
+        }
+        .tabViewStyle(.sidebarAdaptable)
+    }
+}
+```
+
+### Comportamiento por dispositivo
+
+| Dispositivo | Rendering | Secciones visibles |
+|-------------|-----------|-------------------|
+| iPhone (portrait/landscape) | Tab bar inferior | Tabs planos sin headers de seccion |
+| iPad (portrait) | Sidebar colapsable a la izquierda | Secciones "Administracion" y "Cuenta" como headers |
+| iPad (landscape) | Sidebar fija a la izquierda | Secciones con headers, area principal amplia |
+
+### Reglas del layout adaptable
+
+1. Usar `Tab("titulo", systemImage:) { contenido }` en vez de `.tabItem { Label(...) }`
+2. Agrupar tabs relacionados en `TabSection("nombre")` para organizar el sidebar
+3. Cada tab sigue teniendo su propio `NavigationStack` interno
+4. NO anidar NavigationStacks — la misma regla aplica tanto para tabs como para sidebar
+5. Los condicionales por rol (`if currentUser.isAdmin`) funcionan dentro de `TabSection`
+
+---
+
 ## Diagrama de navegacion
 
 ```
@@ -152,12 +216,25 @@ SajaruBoxApp
             │               └── .recoverPassword → (placeholder)
             │
             └── .home → HomeFlow (sin FlowStack)
-                          └── HomeView (TabView)
-                                ├── MembersView (NavigationStack propio)
-                                ├── MembershipPlansView (NavigationStack propio)
-                                ├── InventoryView (NavigationStack propio)
-                                ├── Perfil (todos)
-                                └── Config (admin)
+                          └── HomeView (TabView .sidebarAdaptable)
+                                │
+                                ├── [iPad] Sidebar con secciones:
+                                │     ├── "Administración"
+                                │     │     ├── Miembros (NavigationStack)
+                                │     │     ├── Membresías (NavigationStack)
+                                │     │     ├── Inventario (NavigationStack)
+                                │     │     └── Clases (NavigationStack)
+                                │     └── "Cuenta"
+                                │           ├── Perfil
+                                │           └── Configuración (admin)
+                                │
+                                └── [iPhone] Tab bar inferior:
+                                      ├── Miembros
+                                      ├── Membresías
+                                      ├── Inventario
+                                      ├── Clases
+                                      ├── Perfil
+                                      └── Configuración (admin)
 ```
 
 ---
@@ -168,7 +245,8 @@ SajaruBoxApp
 |-------|-----------|-----|
 | Global | `Phase<AppPhase>` + `GlobalRouterManager` | Cambiar entre login y home |
 | Modulo (con push) | `Router<Route>` + `FlowStack` + `RouterManager` | Navegar dentro de AuthFlow |
-| Tab | `NavigationStack` directo | Navegar dentro de cada tab de HomeView |
+| Home (adaptable) | `TabView` + `Tab` + `TabSection` + `.sidebarAdaptable` | Sidebar en iPad, tabs en iPhone |
+| Tab | `NavigationStack` directo | Navegar dentro de cada tab/modulo |
 
 ---
 
@@ -181,6 +259,7 @@ SajaruBoxApp
 5. Las Views usan `@DependencyState` para acceder al router
 6. Los ViewModels usan `@Dependency` para navegar
 7. `FlowStack` maneja la pila de navegacion automaticamente
+8. Usar `Tab` / `TabSection` con `.tabViewStyle(.sidebarAdaptable)` para layout adaptable iPad/iPhone
 
 ---
 

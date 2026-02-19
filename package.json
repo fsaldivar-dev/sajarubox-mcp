@@ -1,6 +1,6 @@
 {
   "name": "sajarubox-mcp",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "MCP server — SajaruBox shared business rules and context",
   "type": "module",
   "main": "dist/index.js",
