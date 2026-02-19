@@ -166,6 +166,76 @@ Si la fecha de nacimiento indica que el miembro tiene menos de 18 anos:
 
 ---
 
+## Camino 3: Crear miembro desde usuario registrado (sin membresia)
+
+Los usuarios que se registraron desde la app (iOS o Android) pero aun no tienen un Member vinculado
+aparecen en la seccion "Usuarios registrados sin membresia" de la vista de Miembros.
+El admin puede crear un Member a partir de estos usuarios con datos pre-llenados.
+
+### Diagrama
+
+```mermaid
+flowchart TD
+    Start([Admin ve seccion Usuarios registrados sin membresia]) --> SelectUser[Toca usuario o boton persona+]
+    SelectUser --> OpenForm["Abrir formulario de miembro\npre-llenado con datos del User"]
+    OpenForm --> PreFill["fullName → firstName + paternalLastName + maternalLastName\nphone → phone"]
+    PreFill --> AdminEdits["Admin revisa/completa datos\n(salud, emergencia, etc.)"]
+    AdminEdits --> SelectPlan{Admin selecciona plan?}
+    SelectPlan -->|Si| AssignPlan["Asignar membresia + crear pago"]
+    SelectPlan -->|No| SetPending["membershipStatus = pending"]
+    AssignPlan --> CreateMember["Crear members/uuid\nlinkedUserId = user.id\nregisteredBy = self"]
+    SetPending --> CreateMember
+    CreateMember --> LinkUser["Actualizar users/uid\nlinkedMemberId = member.id"]
+    LinkUser --> Success["Mostrar: Miembro registrado exitosamente.\nUsuario desaparece de la seccion"]
+```
+
+### Flujo principal
+
+1. Admin abre Tab "Miembros" y ve la seccion "Usuarios registrados sin membresia"
+2. Toca al usuario o el boton azul de persona+ junto al nombre
+3. Se abre el formulario de nuevo miembro pre-llenado:
+   - `fullName` se separa automaticamente en `firstName`, `paternalLastName`, `maternalLastName`
+   - `phone` se pre-llena desde el User
+4. Admin revisa, corrige si es necesario, y completa datos faltantes (salud, emergencia, etc.)
+5. Opcionalmente selecciona un plan de membresia
+6. Al guardar:
+   - Se crea `members/{uuid}` con `linkedUserId = user.id` y `registeredBy = "self"`
+   - Se actualiza `users/{uid}` con `linkedMemberId = member.id`
+   - Si se selecciono plan: se crea el pago y se asigna la membresia
+7. El usuario desaparece de la seccion y aparece como miembro normal
+
+### Division del nombre
+
+El `fullName` del User es un string unico. Se divide automaticamente:
+
+| fullName | firstName | paternalLastName | maternalLastName |
+|---|---|---|---|
+| "Juan" | "Juan" | "" | "" |
+| "Juan Garcia" | "Juan" | "Garcia" | null |
+| "Juan Garcia Lopez" | "Juan" | "Garcia" | "Lopez" |
+| "Maria del Carmen Hernandez Ruiz" | "Maria" | "del" | "Carmen Hernandez Ruiz" |
+
+**Nota**: La division automatica es una aproximacion. El admin puede corregir los campos antes de guardar.
+
+### Acciones disponibles
+
+| Accion | Donde | Gesto |
+|---|---|---|
+| Crear miembro | Boton azul persona+ | Tap |
+| Crear miembro | Fila del usuario | Tap |
+| Crear miembro | Swipe leading | Deslizar |
+| Crear miembro y asignar plan | Menu contextual | Long press |
+
+### Reglas
+
+1. Solo admin y recepcionista pueden ver la seccion de usuarios sin membresia
+2. Los datos del User se usan como base pero el admin puede modificarlos
+3. La vinculacion User<->Member es bidireccional y se crea automaticamente al guardar
+4. El `registeredBy` se marca como `"self"` porque el usuario ya existia antes
+5. Una vez vinculado, el usuario desaparece de la seccion y se comporta como cualquier miembro
+
+---
+
 ## Editar miembro
 
 ### Diagrama
@@ -424,3 +494,5 @@ Cuando el miembro tiene membresia activa, la app muestra:
 10. Al detectar posible duplicado, se advierte al admin pero se permite crear si confirma
 11. El `SessionResolver` intenta vincular automaticamente al User con un Member existente por telefono o email
 12. Un User sin Member vinculado ve un mensaje indicando que acuda a recepcion
+13. El admin puede crear un Member desde un User registrado sin membresia, pre-llenando datos del User
+14. Al crear un Member desde un User, la vinculacion bidireccional (`linkedUserId` / `linkedMemberId`) se establece automaticamente
