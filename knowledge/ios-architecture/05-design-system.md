@@ -153,6 +153,19 @@ NavigationStack { ... }
     .themedNavigationViewStyle()
 ```
 
+### ThemedNavigationViewStyle y iOS 26
+
+El modifier `.themedNavigationViewStyle()` tiene comportamiento diferenciado por version de iOS:
+
+| iOS | Comportamiento |
+|-----|---------------|
+| < 26 | `UINavigationBarAppearance` manual + `.toolbarBackground(.visible)` + `.toolbarColorScheme` |
+| 26+ | Solo `.toolbarColorScheme` + `.tint` (deja que Liquid Glass maneje el rendering nativo) |
+
+En iOS 26, el `UINavigationBarAppearance` manual y `.toolbarBackground` forzado interferian con el rendering nativo de Liquid Glass, ocultando el navigation bar completo (titulo, search, toolbar).
+
+**Regla critica:** NUNCA anidar `NavigationStack` dentro de `FlowStack`, porque `FlowStack` ya crea un `NavigationStack` interno. En iOS 26 esto causa que el navigation bar del `NavigationStack` interno desaparezca.
+
 ### Modifiers disponibles (30+)
 
 | Modifier | Descripcion |

@@ -27,16 +27,12 @@ class GlobalRouterManager {
 El entry point de la app usa `AppFeatures` para decidir que mostrar:
 
 ```swift
-struct AppFeatures: View {
-    @Dependency(\.globalRouter) var globalRouter
-    
-    var body: some View {
-        switch globalRouter.navigator.current {
-        case .login:
-            AuthFlow()
-        case .home:
-            HomeFlow()
-        }
+AppFeatures(phase: globalRouter.navigator) { target in
+    switch target {
+    case .home:
+        HomeFlow()
+    case .login:
+        AuthFlow()
     }
 }
 ```
@@ -49,7 +45,9 @@ struct AppFeatures: View {
 
 ## Navegacion interna: Router + FlowStack
 
-Dentro de cada flujo, se usa `Router<Destination>` con `FlowStack`:
+Dentro de flujos que necesitan push/pop, se usa `Router<Destination>` con `FlowStack`.
+
+**IMPORTANTE:** `FlowStack` internamente crea un `NavigationStack`. Nunca anidar un `NavigationStack` dentro de otro.
 
 ### Definir rutas
 
@@ -112,23 +110,54 @@ authRouter.router.pop()
 
 ---
 
+## HomeFlow (sin FlowStack)
+
+`HomeFlow` NO usa `FlowStack` porque `HomeView` contiene un `TabView` donde cada tab tiene su propio `NavigationStack`. Usar `FlowStack` aqui crearia NavigationStacks anidados, lo que en iOS 26 oculta completamente el navigation bar (titulo, search, toolbar).
+
+```swift
+struct HomeFlow: View {
+    var body: some View {
+        HomeView()
+            .forceThemeColorScheme()
+    }
+}
+```
+
+Cada tab gestiona su propia navegacion:
+
+```swift
+struct MembersView: View {
+    var body: some View {
+        NavigationStack {
+            // contenido
+            .navigationTitle("Miembros")
+            .searchable(...)
+            .toolbar { ... }
+        }
+        .themedNavigationViewStyle()
+    }
+}
+```
+
+---
+
 ## Diagrama de navegacion
 
 ```
 SajaruBoxApp
     └── AppFeatures (Phase<AppPhase>)
-            ├── .login → AuthFlow (Router<AuthRoute>)
+            ├── .login → AuthFlow (FlowStack → NavigationStack)
             │               ├── .login → LoginView
             │               ├── .register → RegisterView
             │               └── .recoverPassword → (placeholder)
             │
-            └── .home → HomeFlow (Router<HomeRoute>)
-                          └── .welcome → HomeView (TabView)
-                                          ├── MembersView (admin)
-                                          ├── MembershipPlansView (admin)
-                                          ├── Ventas (placeholder)
-                                          ├── Perfil (todos)
-                                          └── Config (admin)
+            └── .home → HomeFlow (sin FlowStack)
+                          └── HomeView (TabView)
+                                ├── MembersView (NavigationStack propio)
+                                ├── MembershipPlansView (NavigationStack propio)
+                                ├── InventoryView (NavigationStack propio)
+                                ├── Perfil (todos)
+                                └── Config (admin)
 ```
 
 ---
@@ -138,14 +167,25 @@ SajaruBoxApp
 | Nivel | Componente | Uso |
 |-------|-----------|-----|
 | Global | `Phase<AppPhase>` + `GlobalRouterManager` | Cambiar entre login y home |
-| Modulo | `Router<Route>` + `FlowStack` + `RouterManager` | Navegar dentro de un flujo |
+| Modulo (con push) | `Router<Route>` + `FlowStack` + `RouterManager` | Navegar dentro de AuthFlow |
+| Tab | `NavigationStack` directo | Navegar dentro de cada tab de HomeView |
 
 ---
 
 ## Reglas
 
-1. Cada flujo (Auth, Home, etc.) tiene su propio `RouterManager`
-2. Los `RouterManager` se registran como `DependencyKey`
-3. Las Views usan `@DependencyState` para acceder al router
-4. Los ViewModels usan `@Dependency` para navegar
-5. `FlowStack` maneja la pila de navegacion automaticamente
+1. **NUNCA anidar NavigationStacks.** `FlowStack` ya crea un `NavigationStack` interno. Si un tab necesita `NavigationStack`, el Flow padre NO debe usar `FlowStack`
+2. `HomeFlow` usa `HomeView()` directamente (sin `FlowStack`) porque cada tab tiene su propio `NavigationStack`
+3. `AuthFlow` usa `FlowStack` porque necesita push/pop entre login, registro, etc.
+4. Los `RouterManager` se registran como `DependencyKey`
+5. Las Views usan `@DependencyState` para acceder al router
+6. Los ViewModels usan `@Dependency` para navegar
+7. `FlowStack` maneja la pila de navegacion automaticamente
+
+---
+
+## Compatibilidad iOS 26
+
+En iOS 26, los NavigationStacks anidados causan que el navigation bar interno desaparezca completamente (sin titulo, sin search, sin toolbar). Esto afecta especialmente a iPads con el nuevo tab bar superior.
+
+`ThemedNavigationViewStyle` tiene un branch `#available(iOS 26, *)` que usa solo modifiers ligeros de SwiftUI (.tint, .toolbarColorScheme) en vez de UINavigationBarAppearance manual, que interfiere con el rendering de Liquid Glass.
