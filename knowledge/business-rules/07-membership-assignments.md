@@ -136,9 +136,9 @@ flowchart TD
 8. Se crea un `Payment` tipo `membership` con `status = completed`
 9. Sistema crea snapshot del plan actual
 10. Calcula fechas segun tipo:
-    - `time_based`: `endDate = startDate + durationInDays`
+    - `time_based`: ver **Aritmetica de fechas** abajo
     - `visit_based`: `endDate = null`, `remainingVisits = totalVisits`
-    - `mixed`: ambos
+    - `mixed`: ambos (fecha + visitas)
 11. `membershipStatus = "active"`
 12. Se guarda en `members/{id}`
 
@@ -168,6 +168,43 @@ Escenario comun: miembro pago visita y ahora quiere mensualidad.
 | Fecha de inicio en el pasado | "La fecha de inicio no puede ser anterior a hoy." |
 | Metodo de pago no seleccionado | "Selecciona un metodo de pago." |
 | Error de red | "No se pudo asignar la membresia. Verifica tu conexion." |
+
+---
+
+## Aritmetica de fechas de vencimiento
+
+Para que los miembros paguen siempre el mismo dia del mes, los planes mensuales usan aritmetica de meses en vez de dias fijos.
+
+### Regla
+
+| Duracion del plan | Calculo de `endDate` | Ejemplo |
+|---|---|---|
+| < 28 dias (semanal, etc.) | `startDate + durationInDays` dias | 15 ene + 7 = 22 ene |
+| >= 28 dias (mensual, etc.) | `startDate + N meses` de calendario | 15 ene + 1 mes = 15 feb |
+
+### Mapeo de dias a meses
+
+| `durationInDays` | Meses calculados | Resultado |
+|---|---|---|
+| 7 | N/A (usa dias) | +7 dias |
+| 28-44 | 1 mes | Mismo dia, mes siguiente |
+| 45-74 | 2 meses | Mismo dia, +2 meses |
+| 75-104 | 3 meses | Mismo dia, +3 meses |
+
+Formula: `meses = max(1, (durationInDays + 14) / 30)` solo si `durationInDays >= 28`
+
+### Beneficio
+
+- El miembro siempre paga el mismo dia del mes (ej: siempre el 15)
+- Al renovar, el ciclo no se desfasa por diferencias de 28/30/31 dias entre meses
+
+### Edge case: dia 31
+
+Si el miembro se registra el 31 de enero y se suma 1 mes, el resultado es 28 de febrero (o 29 en bisiesto). Esto es el comportamiento correcto del calendario: "mismo dia o el mas cercano que exista en ese mes".
+
+### Fines de semana
+
+La membresia vence normalmente en su fecha de calendario. Si el vencimiento cae en sabado o domingo, el cobro de renovacion se hace el siguiente dia habil (lunes) cuando el admin atiende. No hay logica automatica de ajuste: es un comportamiento operativo del gym.
 
 ---
 
