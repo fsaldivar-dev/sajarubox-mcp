@@ -465,10 +465,24 @@ El admin puede realizar acciones rapidas desde la lista de miembros al tocar una
 
 | Accion | Descripcion | Cuando disponible |
 |---|---|---|
+| **Renovar plan** | Renueva con plan anterior pre-seleccionado | Expirado, suspendido, o por vencer (<=3 dias) |
 | **Registrar visita** | Check-in con cobro automatico | Siempre |
 | **Registrar plan** | Asignar plan con cobro | Siempre |
+| Vender producto | Cobro de producto/servicio | Siempre |
 | Editar datos personales | Abrir formulario completo | Siempre |
 | Historial de pagos | Ver cobros del miembro | Siempre |
+
+### Renovacion rapida
+
+Cuando un miembro tiene plan previo y esta expirado, suspendido o por vencer (<=3 dias), se muestra un boton prominente "Renovar plan" que:
+
+1. Pre-selecciona el plan anterior del miembro en el selector
+2. Si la membresia aun no vencio (renovacion anticipada), la fecha de inicio es el dia despues del vencimiento
+3. Si ya vencio, la fecha de inicio es hoy
+4. El plan anterior se marca con badge "Anterior" en la lista de planes
+5. El admin puede cambiar a otro plan si lo desea
+
+Tambien disponible como swipe action (naranja) y context menu en la lista de miembros.
 
 ### Logica de "Registrar visita" segun estado
 
@@ -516,3 +530,5 @@ Ver `08-payments.md` para detalles de cobros.
 16. La primera visita de un miembro nuevo (sin snapshot previo) es gratuita
 17. Se pueden comprar de 1 a 3 visitas de una vez con check-in automatico incluido
 18. El QuickActionSheet permite acciones rapidas sin necesidad de abrir el formulario completo de edicion
+19. La renovacion rapida pre-selecciona el plan anterior y calcula la fecha de inicio inteligentemente (dia despues del vencimiento si aun no expiro, o hoy si ya expiro)
+20. La opcion de renovar esta disponible cuando el miembro tiene plan previo y su status es `expired`, `suspended`, o `active` con <=3 dias restantes
