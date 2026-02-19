@@ -41,11 +41,22 @@ sealed class Screen(val route: String) {
             else "membership_form/new"
     }
 
-    // Miembro (rol = "member")
+    // Miembro (rol = "member") — Home con BottomNavigation
+    object MemberHome : Screen("member_home")  // contenedor del BottomNav
+
+    // Pantallas de detalle del miembro (fuera del BottomNav)
     object MemberProfile : Screen("member_profile")
     object MemberAttendanceHistory : Screen("member_attendance_history")
     object MemberActiveMembership : Screen("member_active_membership")
     object MemberBookings : Screen("member_bookings")
+}
+
+// Tabs del BottomNav del miembro (nested NavHost dentro de MemberHomeScreen)
+sealed class MemberTab(val route: String) {
+    object Classes    : MemberTab("member_home/classes")
+    object Membership : MemberTab("member_home/membership")
+    object Store      : MemberTab("member_home/store")
+    object Profile    : MemberTab("member_home/profile")
 }
 ```
 
@@ -65,7 +76,11 @@ isOnboardingCompleted()?
         v
 getCurrentUserRole() == "admin"?
        SI → Members (pantalla de administrador)
-       NO → Classes (pantalla del miembro)
+       NO → MemberHome (BottomNav con 4 tabs)
+                ├── Tab 1: Clases
+                ├── Tab 2: Membresía
+                ├── Tab 3: Store
+                └── Tab 4: Perfil
 ```
 
 ---
