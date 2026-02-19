@@ -15,7 +15,7 @@
 | Invitado | `guest` | Visitante con acceso temporal. | No |
 | Visitante | `visitor` | Sin cuenta. Solo lectura publica. | No |
 
-> Actualmente solo `admin` y `member` estan implementados. Los demas son para fases futuras.
+> Implementados: `admin`, `receptionist` y `member`. Los demas (`trainer`, `guest`, `visitor`) son para fases futuras.
 
 ---
 
@@ -77,21 +77,34 @@ La deteccion del primer usuario se hace verificando el documento `app_config/set
 
 ## Funcionalidad por rol (iOS)
 
-### Admin y Recepcionista
+La app iOS usa `TabView` con `.tabViewStyle(.sidebarAdaptable)`. En iPad se muestra como sidebar con secciones; en iPhone como tabs.
 
-| Tab | Funcionalidad |
-|-----|---------------|
-| Miembros | Ver, crear, editar, desactivar miembros |
-| Membresias | Ver, crear, editar, desactivar planes |
-| Ventas | (pendiente) Productos e inventario |
-| Perfil | Ver datos propios, cerrar sesion |
-| Configuracion | (pendiente) Gestion de usuarios y roles |
+### Admin
 
-### Miembro
+| Seccion | Tab | Funcionalidad |
+|---------|-----|---------------|
+| Administracion | Miembros | CRUD miembros, check-in, renovacion rapida, acciones rapidas (QuickActionSheet), cobro de visita |
+| Administracion | Membresias | CRUD planes (time_based, visit_based, mixed), activar/desactivar |
+| Administracion | Inventario | CRUD productos, historial de precios, costo y precio publico |
+| Administracion | Clases | CRUD clases, recurrencia, ver asistencia |
+| Cuenta | Perfil | Ver datos propios, cerrar sesion |
+| Cuenta | Configuracion | (pendiente) Gestion de usuarios y roles |
 
-| Tab | Funcionalidad |
-|-----|---------------|
-| Perfil | Ver datos propios, cerrar sesion |
+### Recepcionista
+
+| Seccion | Tab | Funcionalidad |
+|---------|-----|---------------|
+| Administracion | Miembros | CRUD miembros, check-in, renovacion, acciones rapidas |
+| Administracion | Membresias | Ver planes activos (no puede crear/editar) |
+| Administracion | Inventario | CRUD productos, ventas |
+| Administracion | Clases | Ver y crear clases |
+| Cuenta | Perfil | Ver datos propios, cerrar sesion |
+
+### Miembro / Otros roles
+
+| Seccion | Tab | Funcionalidad |
+|---------|-----|---------------|
+| Cuenta | Perfil | Ver datos propios, cerrar sesion |
 
 ---
 
@@ -126,6 +139,40 @@ La deteccion del primer usuario se hace verificando el documento `app_config/set
 | Crear plan | Si | No | No |
 | Editar plan | Si | No | No |
 | Desactivar plan | Si | No | No |
+
+### `products`
+
+| Operacion | admin | receptionist | member |
+|-----------|-------|--------------|--------|
+| Ver productos | Si | Si | No |
+| Crear producto | Si | Si | No |
+| Editar producto | Si | Si | No |
+| Desactivar producto | Si | No | No |
+
+### `payments`
+
+| Operacion | admin | receptionist | member |
+|-----------|-------|--------------|--------|
+| Crear pago (membresia, producto) | Si | Si | No |
+| Ver pagos de un miembro | Si | Si | No |
+| Ver todos los pagos | Si | No | No |
+
+### `classes`
+
+| Operacion | admin | receptionist | member |
+|-----------|-------|--------------|--------|
+| Ver clases | Si | Si | Si |
+| Crear clase | Si | Si | No |
+| Editar clase | Si | Si | No |
+| Desactivar clase | Si | No | No |
+
+### `check_ins`
+
+| Operacion | admin | receptionist | member |
+|-----------|-------|--------------|--------|
+| Registrar check-in | Si | Si | No |
+| Ver check-ins de hoy | Si | Si | No |
+| Ver asistencia de clase | Si | Si | No |
 
 ---
 
