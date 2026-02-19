@@ -170,69 +170,107 @@ Si la fecha de nacimiento indica que el miembro tiene menos de 18 anos:
 
 Los usuarios que se registraron desde la app (iOS o Android) pero aun no tienen un Member vinculado
 aparecen en la seccion "Usuarios registrados sin membresia" de la vista de Miembros.
-El admin puede crear un Member a partir de estos usuarios con datos pre-llenados.
+
+El comportamiento depende de si el usuario completo el onboarding o no:
+
+- **Onboarding completo** (`onboardingCompleted == true`): El admin va directo a seleccion de plan. Todos los datos se leen automaticamente de Firestore via `OnboardingData`.
+- **Sin onboarding**: Se abre el formulario pre-llenado con lo que haya (fullName, phone).
 
 ### Diagrama
 
 ```mermaid
 flowchart TD
-    Start([Admin ve seccion Usuarios registrados sin membresia]) --> SelectUser[Toca usuario o boton persona+]
-    SelectUser --> OpenForm["Abrir formulario de miembro\npre-llenado con datos del User"]
-    OpenForm --> PreFill["fullName → firstName + paternalLastName + maternalLastName\nphone → phone"]
-    PreFill --> AdminEdits["Admin revisa/completa datos\n(salud, emergencia, etc.)"]
-    AdminEdits --> SelectPlan{Admin selecciona plan?}
-    SelectPlan -->|Si| AssignPlan["Asignar membresia + crear pago"]
-    SelectPlan -->|No| SetPending["membershipStatus = pending"]
-    AssignPlan --> CreateMember["Crear members/uuid\nlinkedUserId = user.id\nregisteredBy = self"]
-    SetPending --> CreateMember
-    CreateMember --> LinkUser["Actualizar users/uid\nlinkedMemberId = member.id"]
-    LinkUser --> Success["Mostrar: Miembro registrado exitosamente.\nUsuario desaparece de la seccion"]
+    Start([Admin ve seccion Usuarios registrados sin membresia]) --> SelectUser[Toca usuario]
+    SelectUser --> CheckOnboarding{onboardingCompleted?}
+
+    CheckOnboarding -->|true| FetchOnboarding["Leer OnboardingData de Firestore\n(nombre, apellidos, telefono, salud, etc.)"]
+    FetchOnboarding --> ShowPlanSheet["Mostrar PlanSelectionSheet directo"]
+    ShowPlanSheet --> PickPlan[Admin selecciona plan y metodo de pago]
+    PickPlan --> AutoCreate["Crear members/uuid automaticamente\ncon todos los datos del onboarding\n+ plan + pago + vinculacion"]
+    AutoCreate --> Success["Mostrar: Miembro creado y plan asignado.\nUsuario desaparece de la seccion"]
+
+    CheckOnboarding -->|false| OpenForm["Abrir formulario pre-llenado\nfullName → nombre + apellidos\nphone → telefono"]
+    OpenForm --> AdminEdits["Admin completa datos faltantes"]
+    AdminEdits --> ManualSave["Guardar Member + vinculacion"]
+    ManualSave --> Success
 ```
 
-### Flujo principal
+### Flujo A: Usuario con onboarding completo (automatico)
 
-1. Admin abre Tab "Miembros" y ve la seccion "Usuarios registrados sin membresia"
-2. Toca al usuario o el boton azul de persona+ junto al nombre
-3. Se abre el formulario de nuevo miembro pre-llenado:
-   - `fullName` se separa automaticamente en `firstName`, `paternalLastName`, `maternalLastName`
-   - `phone` se pre-llena desde el User
-4. Admin revisa, corrige si es necesario, y completa datos faltantes (salud, emergencia, etc.)
-5. Opcionalmente selecciona un plan de membresia
-6. Al guardar:
-   - Se crea `members/{uuid}` con `linkedUserId = user.id` y `registeredBy = "self"`
-   - Se actualiza `users/{uid}` con `linkedMemberId = member.id`
-   - Si se selecciono plan: se crea el pago y se asigna la membresia
-7. El usuario desaparece de la seccion y aparece como miembro normal
+1. Admin toca al usuario (badge verde "Datos completos")
+2. iOS lee los campos de onboarding directamente del documento `users/{uid}` en Firestore:
+   - `nombre`, `primerApellido`, `segundoApellido` → `firstName`, `paternalLastName`, `maternalLastName`
+   - `telefono` → `phone`
+   - `telefonoEmergencia` → `emergencyPhone`
+   - `fechaNacimiento` → `birthDate`
+   - `enfermedades` → `diseases`
+   - `lesiones` → `injuries`
+   - `otros` → `otherNotes`
+   - `guardianNombre` + `guardianPrimerApellido` + `guardianRelacion` + `guardianTelefono` → `guardianInfo`
+3. Se muestra el `PlanSelectionSheet` directamente (sin formulario)
+4. Admin selecciona plan y metodo de pago
+5. Al confirmar:
+   - Se crea `members/{uuid}` con todos los datos del onboarding
+   - Se crea el pago
+   - Se vincula `User.linkedMemberId` <-> `Member.linkedUserId`
+   - `registeredBy = "self"`
+6. El usuario desaparece de la seccion
 
-### Division del nombre
+### Flujo B: Usuario sin onboarding (formulario)
 
-El `fullName` del User es un string unico. Se divide automaticamente:
+1. Admin toca al usuario (badge azul "Sin membresia")
+2. Se abre el formulario pre-llenado con `fullName` y `phone`
+3. Admin completa los datos faltantes
+4. Opcionalmente selecciona un plan
+5. Al guardar se crea el Member y la vinculacion
 
-| fullName | firstName | paternalLastName | maternalLastName |
+### OnboardingData
+
+Struct que mapea los campos del onboarding guardados por la app publica en `users/{uid}`:
+
+| Campo Firestore (Android) | Campo OnboardingData | Campo Member |
+|---|---|---|
+| `nombre` | `nombre` | `firstName` |
+| `primerApellido` | `primerApellido` | `paternalLastName` |
+| `segundoApellido` | `segundoApellido` | `maternalLastName` |
+| `telefono` | `telefono` | `phone` |
+| `telefonoEmergencia` | `telefonoEmergencia` | `emergencyPhone` |
+| `fechaNacimiento` (Timestamp) | `fechaNacimiento` (Date) | `birthDate` |
+| `enfermedades` | `enfermedades` | `diseases` |
+| `lesiones` | `lesiones` | `injuries` |
+| `otros` | `otros` | `otherNotes` |
+| `isMinor` | `isMinor` | (computed) |
+| `guardianNombre` + `guardianPrimerApellido` + `guardianRelacion` + `guardianTelefono` | `guardianInfo` (concatenado) | `guardianInfo` |
+
+### Indicadores visuales
+
+| Estado usuario | Badge | Color boton | Icono |
 |---|---|---|---|
-| "Juan" | "Juan" | "" | "" |
-| "Juan Garcia" | "Juan" | "Garcia" | null |
-| "Juan Garcia Lopez" | "Juan" | "Garcia" | "Lopez" |
-| "Maria del Carmen Hernandez Ruiz" | "Maria" | "del" | "Carmen Hernandez Ruiz" |
-
-**Nota**: La division automatica es una aproximacion. El admin puede corregir los campos antes de guardar.
+| Onboarding completo | "Datos completos" (verde) | Verde | `creditcard.fill` |
+| Sin onboarding | "Sin membresia" (azul) | Azul | `person.badge.plus` |
 
 ### Acciones disponibles
 
-| Accion | Donde | Gesto |
+| Accion | onboardingCompleted | Resultado |
 |---|---|---|
-| Crear miembro | Boton azul persona+ | Tap |
-| Crear miembro | Fila del usuario | Tap |
-| Crear miembro | Swipe leading | Deslizar |
-| Crear miembro y asignar plan | Menu contextual | Long press |
+| Tap en fila | true | PlanSelectionSheet directo |
+| Tap en fila | false | Formulario pre-llenado |
+| Boton visible | true | PlanSelectionSheet directo |
+| Boton visible | false | Formulario pre-llenado |
+| Swipe leading | true | "Asignar plan" |
+| Swipe leading | false | "Crear miembro" |
+| Context menu | true | "Asignar plan directo" |
+| Context menu | false | "Crear miembro y asignar plan" |
 
 ### Reglas
 
 1. Solo admin y recepcionista pueden ver la seccion de usuarios sin membresia
-2. Los datos del User se usan como base pero el admin puede modificarlos
-3. La vinculacion User<->Member es bidireccional y se crea automaticamente al guardar
-4. El `registeredBy` se marca como `"self"` porque el usuario ya existia antes
-5. Una vez vinculado, el usuario desaparece de la seccion y se comporta como cualquier miembro
+2. Si `onboardingCompleted == true`, NO se muestra formulario — se usa `OnboardingData` directamente
+3. Si la lectura de `OnboardingData` falla, se hace fallback al formulario pre-llenado
+4. La vinculacion User<->Member es bidireccional y se crea automaticamente al guardar
+5. El `registeredBy` se marca como `"self"` porque el usuario ya existia antes
+6. Una vez vinculado, el usuario desaparece de la seccion y se comporta como cualquier miembro
+7. `OnboardingData` es reutilizable cuando iOS/Android implementen creacion de Member en el onboarding
 
 ---
 
@@ -496,3 +534,5 @@ Cuando el miembro tiene membresia activa, la app muestra:
 12. Un User sin Member vinculado ve un mensaje indicando que acuda a recepcion
 13. El admin puede crear un Member desde un User registrado sin membresia, pre-llenando datos del User
 14. Al crear un Member desde un User, la vinculacion bidireccional (`linkedUserId` / `linkedMemberId`) se establece automaticamente
+15. Si el usuario completo el onboarding, iOS lee `OnboardingData` de Firestore y crea el Member automaticamente (sin formulario)
+16. Si la lectura de `OnboardingData` falla, se hace fallback al formulario pre-llenado con `fullName` y `phone`
