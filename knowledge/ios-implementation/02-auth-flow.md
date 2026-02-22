@@ -313,6 +313,61 @@ private func signOut() {
 
 ---
 
+## Recuperacion de contrasena
+
+### Archivos
+
+```
+AuthModule/RecoverPasswordModule/
+├── RecoverPasswordViewData.swift
+├── RecoverPasswordViewModel.swift
+└── RecoverPasswordView.swift
+```
+
+### Navegacion
+
+Desde `LoginView`, el texto "Olvidaste tu contrasena?" navega a `.recoverPassword` via `authRouter.router.to(.recoverPassword)`.
+
+En `AuthFlow`, la ruta `.recoverPassword` presenta `RecoverPasswordView(viewModel: RecoverPasswordViewModelImpl())`.
+
+### RecoverPasswordViewData
+
+```swift
+struct RecoverPasswordViewData {
+    var email: String = ""
+    var emailError: String?
+    var generalError: String?
+    var isLoading: Bool = false
+    var emailSent: Bool = false   // Controla el estado input vs success
+}
+```
+
+### RecoverPasswordViewModel
+
+Protocolo `RecoverPasswordViewModel` con un unico metodo `sendResetEmail()`.
+
+Implementacion `RecoverPasswordViewModelImpl`:
+1. Valida email localmente (no vacio, formato basico)
+2. Llama a `Auth.auth().sendPasswordReset(withEmail:)`
+3. En exito: `data.emailSent = true`
+4. En error:
+   - `invalidEmail` -> error inline en campo
+   - `tooManyRequests` -> error general
+   - `networkError` -> error general
+   - `userNotFound` o cualquier otro -> `data.emailSent = true` (por seguridad, no revelar)
+
+### RecoverPasswordView
+
+Dos estados visuales:
+
+**Input state**: icono de candado, titulo, descripcion, campo de email con error inline, boton "Enviar enlace de recuperacion", link "Volver a iniciar sesion".
+
+**Success state**: icono de sobre verde, titulo "Correo enviado!", email del usuario en bold, boton "Volver a iniciar sesion", boton "Reenviar correo".
+
+Layout responsive: compact (iPhone portrait) vs wide (iPad/landscape), mismo patron que LoginView y RegisterView.
+
+---
+
 ## Cancelacion de tasks
 
 Todos los ViewModels manejan cancelacion para evitar leaks:

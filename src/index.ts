@@ -136,12 +136,18 @@ const RESOURCES = [
     file: "knowledge/ios-architecture/06-data-sync.md",
   },
 
-  // Reglas de negocio: Clases
+  // Reglas de negocio: Clases y Reportes
   {
     uri: "sajarubox://business/classes",
     name: "Reglas: Clases del gimnasio",
     description: "CRUD de clases, recurrencia, reservas, asistencia, compatibilidad cross-platform",
     file: "knowledge/business-rules/10-classes.md",
+  },
+  {
+    uri: "sajarubox://business/reports",
+    name: "Reglas: Reportes y metricas",
+    description: "Metricas financieras, visitas, membresias, inventario, periodos, alertas",
+    file: "knowledge/business-rules/11-reports.md",
   },
 
   // Implementacion iOS (para devs)
@@ -180,6 +186,12 @@ const RESOURCES = [
     name: "iOS Impl: Modulo de clases",
     description: "Implementacion del modulo de clases: modelos, Firestore, UI, recurrencia",
     file: "knowledge/ios-implementation/10-classes-module.md",
+  },
+  {
+    uri: "sajarubox://ios-impl/reports",
+    name: "iOS Impl: Modulo de reportes",
+    description: "Dashboard de metricas, TextAmount, calculo desde repositorios existentes",
+    file: "knowledge/ios-implementation/11-reports-module.md",
   },
 ];
 
@@ -247,6 +259,7 @@ const TOPIC_MAP: Record<string, string | string[]> = {
   payments: "knowledge/business-rules/08-payments.md",
   inventory: "knowledge/business-rules/09-inventory.md",
   classes: "knowledge/business-rules/10-classes.md",
+  reports: "knowledge/business-rules/11-reports.md",
   // iOS arquitectura
   "ios-structure": "knowledge/ios-architecture/01-project-structure.md",
   "ios-mvvm": "knowledge/ios-architecture/02-mvvm-pattern.md",
@@ -262,6 +275,7 @@ const TOPIC_MAP: Record<string, string | string[]> = {
   "ios-theming": "knowledge/ios-implementation/05-theming-guide.md",
   "ios-inventory": "knowledge/ios-implementation/09-inventory-module.md",
   "ios-classes": "knowledge/ios-implementation/10-classes-module.md",
+  "ios-reports": "knowledge/ios-implementation/11-reports-module.md",
   // Bundles (multiples archivos)
   "all-business": [
     "knowledge/business-rules/01-authentication.md",
@@ -274,6 +288,7 @@ const TOPIC_MAP: Record<string, string | string[]> = {
     "knowledge/business-rules/08-payments.md",
     "knowledge/business-rules/09-inventory.md",
     "knowledge/business-rules/10-classes.md",
+    "knowledge/business-rules/11-reports.md",
   ],
   "all-ios-arch": [
     "knowledge/ios-architecture/01-project-structure.md",
@@ -291,13 +306,14 @@ const TOPIC_MAP: Record<string, string | string[]> = {
     "knowledge/ios-implementation/05-theming-guide.md",
     "knowledge/ios-implementation/09-inventory-module.md",
     "knowledge/ios-implementation/10-classes-module.md",
+    "knowledge/ios-implementation/11-reports-module.md",
   ],
 };
 
 // ── Servidor MCP ──────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: "sajarubox-mcp", version: "1.15.0" },
+  { name: "sajarubox-mcp", version: "1.17.0" },
   { capabilities: { resources: {}, tools: {} } }
 );
 
@@ -328,7 +344,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "get_context",
       description:
-        "Obtiene documentacion de SajaruBox por tema. Topics disponibles: schema, roles, rules, platforms, sprint, authentication, user-roles, memberships, members, admin-setup, membership-plans, membership-assignments, payments, inventory, classes, ios-structure, ios-mvvm, ios-di, ios-navigation, ios-design-system, ios-sync, ios-firestore, ios-auth, ios-session, ios-new-module, ios-theming, ios-inventory, ios-classes, all-business, all-ios-arch, all-ios-impl",
+        "Obtiene documentacion de SajaruBox por tema. Topics disponibles: schema, roles, rules, platforms, sprint, authentication, user-roles, memberships, members, admin-setup, membership-plans, membership-assignments, payments, inventory, classes, reports, ios-structure, ios-mvvm, ios-di, ios-navigation, ios-design-system, ios-sync, ios-firestore, ios-auth, ios-session, ios-new-module, ios-theming, ios-inventory, ios-classes, ios-reports, all-business, all-ios-arch, all-ios-impl",
       inputSchema: {
         type: "object",
         properties: {

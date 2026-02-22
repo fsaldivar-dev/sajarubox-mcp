@@ -181,14 +181,64 @@ Se trata como usuario completamente nuevo (ver `05-admin-setup.md`).
 
 ## Recuperacion de contrasena
 
-Pendiente de implementar. Se planea:
+### Diagrama
 
-1. El usuario ingresa su email
-2. Se envia un correo con enlace para restablecer la contrasena
-3. El usuario crea una nueva contrasena desde el enlace
-4. Mensaje al usuario: "Si existe una cuenta con ese correo, recibiras un enlace para restablecer tu contrasena."
+```mermaid
+flowchart TD
+    Start([Usuario toca 'Olvidaste tu contrasena?']) --> RecoverScreen[Pantalla de recuperacion]
+    RecoverScreen --> FillEmail[Ingresa su email]
+    FillEmail --> Validate{Email valido?}
+    Validate -->|Vacio o invalido| ShowError[Error inline bajo el campo]
+    ShowError --> FillEmail
+    Validate -->|OK| SendReset[Firebase: sendPasswordReset]
+    SendReset -->|Error de red| ShowNetworkError["Mostrar: Sin conexion a internet."]
+    SendReset -->|Too many requests| ShowRateLimit["Mostrar: Demasiados intentos. Espera un momento."]
+    SendReset -->|OK o userNotFound| ShowSuccess["Mostrar: Correo enviado!"]
+    ShowNetworkError --> FillEmail
+    ShowRateLimit --> FillEmail
+    ShowSuccess --> SuccessState[Estado de exito con opcion de reenviar]
+    SuccessState -->|Volver| LoginScreen([Pantalla de login])
+    SuccessState -->|Reenviar| SendReset
+```
 
-> Nota: el mensaje no debe confirmar si el email existe.
+### Flujo principal
+
+1. El usuario toca "Olvidaste tu contrasena?" en la pantalla de login
+2. Se navega a la pantalla de recuperacion
+3. El usuario ingresa su correo electronico
+4. Validacion local: email no vacio y formato basico valido
+5. Se llama a `Firebase Auth.sendPasswordReset(withEmail:)`
+6. Se muestra estado de exito: "Revisa tu bandeja de entrada"
+7. El usuario puede volver a login o reenviar el correo
+
+### Flujo alternativo: email no registrado
+
+Por seguridad, si el email no existe en Firebase Auth, se muestra el mismo mensaje de exito. **NUNCA** revelar si la cuenta existe.
+
+### Flujo alternativo: error de red / rate limit
+
+Se muestran mensajes especificos para estos errores porque no revelan informacion sobre la cuenta.
+
+### Validaciones
+
+| Campo | Regla | Mensaje de error |
+|-------|-------|------------------|
+| Email | No vacio | "Ingresa tu correo electronico." |
+| Email | Formato basico (contiene @ y .) | "El formato del correo es invalido." |
+
+### Reglas de seguridad
+
+1. El mensaje de exito es identico sin importar si el email existe o no.
+2. Solo se muestran errores de infraestructura (red, rate limit), nunca errores de usuario no encontrado.
+3. El enlace de restablecimiento lo genera y envia Firebase; la app no maneja el cambio de contrasena directamente.
+4. El usuario restablece su contrasena via el enlace en su navegador (pagina de Firebase Auth).
+
+### Estados de la vista
+
+| Estado | Que se muestra |
+|--------|---------------|
+| Input | Icono, titulo, descripcion, campo de email, boton enviar, link volver |
+| Success | Icono verde, titulo "Correo enviado!", email del usuario, boton volver, boton reenviar |
 
 ---
 
