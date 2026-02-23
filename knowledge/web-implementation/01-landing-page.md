@@ -29,6 +29,7 @@ Orden real en el HTML (scroll): Home → Servicios → Horarios → **Contacto �
 - Links de scroll suave: Inicio, Servicios, Horarios, Música, Contacto
 - Al hacer scroll >50px el navbar obtiene clase `.scrolled` (fondo semitransparente)
 - No hay boton de login ni modo claro
+- En mobile (`max-width: 768px`) el menu de links se oculta (no hay menu hamburguesa)
 
 ---
 
@@ -50,12 +51,12 @@ CTA: "Comienza Ahora"  →  hace scroll a #contacto
 
 ### Barra lateral de redes sociales
 
-Iconos SVG flotantes en el lado izquierdo/derecho del hero:
+Iconos SVG flotantes en el lado izquierdo del hero (en mobile se desplazan a la esquina inferior izquierda):
 
 | Red | URL |
 |-----|-----|
 | Facebook | `https://www.facebook.com/profile.php?id=61584823104680` |
-| Instagram | `https://www.instagram.com/sajarubox` |
+| Instagram | `https://www.instagram.com/sajarubox?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==` |
 | TikTok | `https://www.tiktok.com/@sajarubox` |
 | WhatsApp | `https://wa.me/5217299595662` |
 

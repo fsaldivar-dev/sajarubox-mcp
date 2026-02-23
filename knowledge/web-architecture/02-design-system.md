@@ -138,9 +138,9 @@ Centra el contenido con ancho maximo:
 
 ```css
 .container {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 2rem;
 }
 ```
 
@@ -150,7 +150,7 @@ Espaciado estandar para todas las secciones:
 
 ```css
 .section {
-  padding: 80px 0;
+  padding: 6rem 0;
 }
 ```
 
@@ -181,13 +181,13 @@ Las secciones alternas usan `--section-bg` en lugar de `--dark-bg`:
 ```css
 /* Card base */
 background: var(--card-bg);
-border: 1px solid var(--border-color);
-border-radius: 12px;
-padding: 32px;
-transition: transform 0.3s ease, border-color 0.3s ease;
+border: 2px solid transparent;
+border-radius: 15px;
+padding: 2.5rem;
+transition: all 0.3s ease;
 
 /* Hover */
-transform: translateY(-4px);
+transform: translateY(-10px);
 border-color: var(--primary-color);
 ```
 
@@ -198,8 +198,8 @@ Boton principal naranja del Hero:
 ```css
 background: var(--secondary-color);   /* #d98c40 */
 color: #000;
-border-radius: 8px;
-font-weight: 700;
+border-radius: 50px;
+font-weight: 600;
 /* Hover: background var(--secondary-200) */
 ```
 
@@ -208,9 +208,11 @@ font-weight: 700;
 Iconos de redes sociales en la barra lateral:
 
 ```css
-color: var(--text-secondary);
-transition: color 0.3s ease, transform 0.3s ease;
-/* Hover: color var(--primary-color), transform scale(1.2) */
+background: var(--primaryAlpha25);
+border: 2px solid var(--primary-color);
+color: var(--primary-color);
+transition: all 0.3s ease;
+/* Hover: background var(--primary-color), color var(--bg-base), transform scale(1.1) */
 ```
 
 ---
@@ -245,10 +247,10 @@ Usadas en `.hero-content` para la entrada del titulo y CTA.
 
 ## Reglas para estilos nuevos
 
-1. Usar siempre variables CSS — nunca hardcodear colores hex
-2. Nuevas secciones siguen el patron `.section` con `padding: 80px 0`
+1. Preferir variables CSS y evitar hardcodear hex nuevos sin necesidad
+2. Nuevas secciones siguen el patron `.section` con `padding: 6rem 0` (ajuste en media queries)
 3. Los colores de fondo alternan entre `--dark-bg` y `--section-bg`
 4. Cards nuevas usan `--card-bg`, `--border-color` y el hover con `--primary-color`
 5. Botones CTA usan `--secondary-color` (naranja)
-6. Links y acentos interactivos usan `--primary-color` (teal)
+6. Navbar y CTA usan acento secundario en hover; elementos de red/cards usan primario
 7. Agregar breakpoints en los mismos 3 puntos: 1024px, 768px, 480px

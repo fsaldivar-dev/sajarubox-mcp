@@ -1,8 +1,16 @@
 # SajaruBox — Plataformas
 
+> **Estrategia de desarrollo:**
+> - **Android**: Fase 1 = App pública (miembros/clientes) ✅ | Fase 2 = App admin ⏳
+> - **iOS**: Fase 1 = App interna (admin/staff) ✅ | Fase 2 = App pública ⏳
+> - **Web**: Landing estática ✅ | Autoservicio público ⏳
+
 ---
 
-## Android — App del Miembro
+## Android — App Pública (Miembros/Clientes)
+
+**Audiencia:** Miembros del gym que usan la app para reservar clases y ver su membresía
+**Rol principal:** `member` (clientes del gym)
 
 **Repo:** `fsaldivar-dev/sajaru-box-android`
 **Branch principal:** `feature/environments-config`
@@ -24,7 +32,10 @@
 
 ---
 
-## iOS — App del Administrador
+## iOS — App Interna (Admin/Staff)
+
+**Audiencia:** Administradores y recepcionistas del gym
+**Roles principales:** `admin`, `receptionist`
 
 **Repo:** `fsaldivar-dev/sajaru-box-ios`
 **Branch principal:** `main`
@@ -94,3 +105,37 @@
 | Roles | `admin`, `receptionist`, `trainer`, `member`, `guest`, `visitor` | Definidos en RolesCore, implementados: admin, receptionist, member |
 | Colecciones compartidas | `members`, `membership_plans`, `users`, `payments`, `products`, `classes`, `classBookings`, `classAttendance`, `check_ins` | Android e iOS leen/escriben las mismas colecciones |
 | Campos Firestore | Espanol en Android, mapeo manual en iOS | Compatibilidad sin migracion de esquema |
+
+---
+
+## Roadmap de Plataformas
+
+### Fase 1: Apps especializadas (Actual)
+- ✅ **Android App Pública**: Miembros reservan clases, ven su membresía
+- ✅ **iOS App Admin**: Staff gestiona miembros, cobros, inventario, check-in
+- ✅ **Web Landing**: Información estática del gym
+
+### Fase 2: Cross-platform completo (Futuro)
+- ⏳ **Android App Admin**: Versión admin para tablets Android en recepción
+- ⏳ **iOS App Pública**: Miembros iOS pueden auto-registrarse y usar la app
+- ⏳ **Web Autoservicio**: Reservar clases sin instalar app, pago online
+
+### Fase 3: Features avanzados (Planeado)
+- ⏳ **TV Display**: Pantalla con WODs/rutinas en tiempo real
+- ⏳ **Notificaciones push**: Recordatorios de clases, vencimiento de membresía
+- ⏳ **Reports/Dashboard**: Analytics del negocio (ingresos, asistencia, conversión)
+
+---
+
+## ¿Por qué esta estrategia?
+
+**Ventajas de desarrollar apps especializadas primero:**
+1. **Velocidad**: Enfocarse en un caso de uso por plataforma acelera desarrollo
+2. **Testing**: Cada app tiene usuarios reales (staff en iOS, clientes en Android)
+3. **Feedback**: Iterar rápido con usuarios específicos antes de expandir
+4. **Recursos**: Optimizar esfuerzo (iOS admin es más complejo que cliente)
+
+**Resultado esperado:**
+- Staff feliz con herramientas potentes (iOS)
+- Clientes felices con experiencia simple (Android)
+- Código reutilizable para Fase 2 (cross-platform completo)
