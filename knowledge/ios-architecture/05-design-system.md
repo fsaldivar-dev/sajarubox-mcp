@@ -168,19 +168,23 @@ En iOS 26, el `UINavigationBarAppearance` manual y `.toolbarBackground` forzado 
 
 ### Modifiers disponibles (30+)
 
-| Modifier | Descripcion |
-|----------|-------------|
-| `.themedText(variant:colorVariant:)` | Texto con tipografia y color del tema |
-| `.buttonStyle(_:size:)` | Boton con variante (primary, secondary, danger, etc.) |
-| `.textFieldStyle(_:)` | Campo de texto (email, password, text, phone, search) |
-| `.themedCard()` | Card con fondo y bordes del tema |
-| `.themedBadge()` | Badge/etiqueta |
-| `.themedChip()` | Chip seleccionable |
-| `.themedToggle()` | Toggle/switch |
-| `.themedNavigationViewStyle()` | Estilo de navegacion |
-| `.themedListStyle()` | Estilo de lista |
-| `.themedAlert()` | Alerta tematica |
-| `AppDivider` | Separador tematico |
+| Modifier | Descripcion | Obligatorio |
+|----------|-------------|:-----------:|
+| `.themedText(variant:colorVariant:)` | Texto con tipografia y color del tema | Si (para texto estilizado) |
+| `.buttonStyle(_:size:)` | Boton con variante (primary, secondary, danger, etc.) | Si |
+| `.textFieldStyle(_:)` | Campo de texto (email, password, text, phone, search) | Si |
+| `.themedNavigationViewStyle()` | Estilo de navegacion (toolbar, fondo) | **Si (en todo NavigationStack)** |
+| `.themedListStyle(variant:)` | Estilo de lista con fondo del tema | **Si (en toda List)** |
+| `.themedSegmentedControlStyle()` | Picker segmentado con colores del tema | **Si (en todo Picker segmentado)** |
+| `.themedCard()` | Card con fondo y bordes del tema | Si |
+| `.themedBadge()` | Badge/etiqueta | Si |
+| `.themedChip()` | Chip seleccionable | Si |
+| `.themedToggle()` | Toggle/switch | Si |
+| `.themedAlert()` | Alerta tematica | Si |
+| `.forceThemeColorScheme()` | Forzar color scheme del tema en flows | Si (en Flows) |
+| `AppDivider` | Separador tematico | Si |
+
+**Regla critica**: NUNCA usar estilos nativos (`.pickerStyle(.segmented)`, `.listStyle(.insetGrouped)`) cuando existe un equivalente tematico. Los estilos nativos muestran colores del sistema (azul) en lugar de los colores del tema.
 
 ---
 
