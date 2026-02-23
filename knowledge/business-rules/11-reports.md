@@ -6,7 +6,7 @@
 
 ## Conceptos
 
-Un **reporte** es una vista calculada que agrega datos de pagos, check-ins, miembros, productos y membresias para dar visibilidad operativa y financiera al administrador del gimnasio.
+Un **reporte** es una vista calculada que agrega datos de pagos, egresos, check-ins, miembros, productos y membresias para dar visibilidad operativa y financiera al administrador del gimnasio.
 
 Los reportes NO generan ni almacenan documentos en Firestore. Todo se calcula en tiempo real a partir de las colecciones existentes.
 
@@ -17,6 +17,7 @@ Los reportes NO generan ni almacenan documentos en Firestore. Todo se calcula en
 | Coleccion | Datos que aporta |
 |-----------|-----------------|
 | `payments` | Ingresos, metodos de pago, tipo de venta, montos |
+| `expenses` | Egresos operativos (renta, servicios, nomina, etc.) |
 | `members` | Estado de membresia, vencimientos, datos de miembro |
 | `check_ins` | Visitas, frecuencia, hora pico |
 | `products` | Costo de productos, stock, categoria |
@@ -44,18 +45,31 @@ Los **totales globales** (ingresos y egresos totales) son independientes del per
 - **Ingreso del periodo**: Suma de `payments` completados dentro del rango seleccionado.
 - **Fecha de referencia**: Se usa `completedAt` si existe, de lo contrario `createdAt`.
 
-### Egresos (costo)
+### Egresos
 
-- **Egreso global**: Suma del costo de todos los productos vendidos historicamente.
-- **Egreso del periodo**: Suma del costo de productos vendidos dentro del rango.
-- **Calculo de costo**: Para cada `payment` con `type = product`, se busca el producto en el catalogo y se usa su `costPrice`. Si no se puede asociar, se estima como 60% del monto de venta.
+Los egresos se componen de dos fuentes:
 
-> **Nota**: En esta version, los egresos solo contemplan el costo de productos vendidos (COGS). No se registran gastos operativos (renta, servicios, nomina). Un modulo futuro de "Gastos" podria ampliar esto.
+#### 1. COGS (Costo de productos vendidos)
+
+- Para cada `payment` con `type = product`, se busca el producto en el catalogo y se usa su `costPrice`.
+- Si no se puede asociar el producto, se estima como 60% del monto de venta.
+
+#### 2. Gastos operativos (coleccion `expenses`)
+
+- Suma de todos los documentos en `expenses` con `isActive = true`.
+- Se filtran por `date` para el periodo seleccionado.
+- Ver `business-rules/13-expenses.md` para flujos completos.
+
+#### Totales de egresos
+
+- **Egreso global**: COGS historico + suma de todos los `expenses` activos (all-time).
+- **Egreso del periodo**: COGS del periodo + `expenses` cuya `date` cae dentro del rango seleccionado.
 
 ### Utilidad
 
 ```
-utilidad = ingresos - egresos
+utilidad = ingresos - egresos_totales
+egresos_totales = COGS + gastos_operativos
 margen (%) = (utilidad / ingresos) * 100
 ```
 
@@ -64,6 +78,28 @@ margen (%) = (utilidad / ingresos) * 100
 ```
 ticket_promedio = ingreso_del_periodo / numero_de_transacciones
 ```
+
+---
+
+## Desglose de egresos
+
+El dashboard muestra un desglose de egresos por categoria:
+
+| Fuente | Descripcion |
+|--------|-------------|
+| COGS | Costo de productos vendidos (calculado desde `payments` + `products`) |
+| Renta | Suma de `expenses` con `category = rent` |
+| Servicios | Suma de `expenses` con `category = utilities` |
+| Nomina | Suma de `expenses` con `category = payroll` |
+| Equipo | Suma de `expenses` con `category = equipment` |
+| Insumos | Suma de `expenses` con `category = supplies` |
+| Mantenimiento | Suma de `expenses` con `category = maintenance` |
+| Marketing | Suma de `expenses` con `category = marketing` |
+| Seguros | Suma de `expenses` con `category = insurance` |
+| Impuestos | Suma de `expenses` con `category = taxes` |
+| Otros | Suma de `expenses` con `category = other` |
+
+Cada categoria muestra: monto total del periodo y porcentaje del total de egresos.
 
 ---
 
@@ -132,7 +168,7 @@ Resumen de todos los miembros activos (`isActive = true`):
 | Estado | Descripcion |
 |--------|-------------|
 | `active` | Membresia vigente |
-| `expired` | Venció por tiempo o visitas agotadas |
+| `expired` | Vencio por tiempo o visitas agotadas |
 | `pending` | Registrado pero sin membresia activa |
 | `suspended` | Suspendida por admin |
 | `cancelled` | Cancelada definitivamente |
@@ -150,16 +186,25 @@ Resumen de todos los miembros activos (`isActive = true`):
 
 ---
 
+## Alertas de gastos recurrentes
+
+- **Pendientes**: Gastos marcados como `isRecurring = true` en meses anteriores que no tienen equivalente (misma `category` + `vendorName`) registrado en el mes actual.
+- Se muestran como aviso en el dashboard: "Tienes N gastos recurrentes pendientes de registrar este mes."
+
+---
+
 ## Reglas de acceso
 
 | Rol | Acceso a reportes |
 |-----|-------------------|
-| `admin` | Todos los reportes |
-| `receptionist` | Todos los reportes |
+| `admin` | Todos los reportes (incluyendo egresos) |
+| `receptionist` | Reportes de ingresos, check-ins, membresias (sin egresos) |
 | `trainer` | Sin acceso |
 | `member` | Sin acceso |
 | `guest` | Sin acceso |
 | `visitor` | Sin acceso |
+
+> El recepcionista puede ver ingresos y operativa, pero NO los egresos (informacion financiera sensible del negocio).
 
 ---
 
@@ -168,10 +213,13 @@ Resumen de todos los miembros activos (`isActive = true`):
 1. Los reportes son de **solo lectura**. No crean, modifican ni eliminan documentos.
 2. Los **totales globales** siempre son visibles, independientemente del periodo.
 3. Solo se consideran pagos con `status = completed` para calculos financieros.
-4. El costo de productos se calcula usando `costPrice` del catalogo actual. Si el producto no se encuentra, se estima como 60% del monto.
-5. Los check-ins se filtran por el rango del periodo seleccionado.
-6. Las membresias se evaluan sobre el estado actual (no historico).
-7. Las alertas de vencimiento usan una ventana de 7 dias.
-8. Las alertas de stock bajo usan un umbral de 5 unidades.
-9. Los montos siempre se muestran usando el componente `TextAmount` del design system con `currencyCode: "MXN"`.
-10. El periodo predeterminado al abrir reportes es "Hoy".
+4. El costo de productos (COGS) se calcula usando `costPrice` del catalogo actual. Si el producto no se encuentra, se estima como 60% del monto.
+5. Los egresos operativos se leen de la coleccion `expenses` y se suman al COGS para obtener el egreso total.
+6. Los check-ins se filtran por el rango del periodo seleccionado.
+7. Las membresias se evaluan sobre el estado actual (no historico).
+8. Las alertas de vencimiento usan una ventana de 7 dias.
+9. Las alertas de stock bajo usan un umbral de 5 unidades.
+10. Los montos siempre se muestran usando el componente `TextAmount` del design system con `currencyCode: "MXN"`.
+11. El periodo predeterminado al abrir reportes es "Hoy".
+12. Los egresos solo son visibles para el rol `admin`. El recepcionista no ve la seccion de egresos ni la utilidad real.
+13. Las alertas de gastos recurrentes pendientes se muestran solo al admin en el dashboard.

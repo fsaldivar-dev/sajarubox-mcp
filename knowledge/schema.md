@@ -23,6 +23,7 @@
 | `exercises` | UUID generado | Catalogo de ejercicios del gimnasio | iOS |
 | `routine_templates` | UUID generado | Plantillas reutilizables de rutinas | iOS |
 | `daily_routines` | UUID generado | Rutinas asignadas a un dia/clase | iOS |
+| `expenses` | UUID generado | Egresos y gastos operativos del gimnasio | iOS |
 
 ---
 
@@ -550,6 +551,58 @@ Rutina asignada a un dia especifico y opcionalmente a una clase (GymClass). Es l
 3. Al crear desde plantilla, los bloques se copian (deep copy). Cambios a la plantilla no afectan rutinas existentes
 4. Cualquier autenticado puede leer las rutinas del dia. Solo admin/trainer pueden escribir
 5. No se eliminan: se sobreescriben o se editan
+
+---
+
+## `expenses/{expenseId}`
+
+Egresos y gastos operativos del gimnasio. El admin registra cada gasto manualmente. Son independientes de los pagos (ingresos) y se combinan en el dashboard de reportes para calcular la utilidad real. Ver `business-rules/13-expenses.md` para flujos completos.
+
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `id` | String | Si | UUID generado |
+| `category` | String | Si | `rent`, `utilities`, `payroll`, `equipment`, `supplies`, `maintenance`, `marketing`, `insurance`, `taxes`, `other` |
+| `description` | String | Si | Descripcion del gasto (ej: "Renta mensual local") |
+| `amount` | Double | Si | Monto del gasto |
+| `currency` | String | Si | Codigo ISO 4217 (default: `MXN`) |
+| `date` | Timestamp | Si | Fecha en que ocurrio el gasto |
+| `paymentMethod` | String | Si | `cash`, `card`, `transfer` |
+| `vendorName` | String | No | Nombre del proveedor o beneficiario |
+| `notes` | String | No | Notas adicionales |
+| `isRecurring` | Boolean | Si | Si es un gasto recurrente mensual (default: false) |
+| `recurringDay` | Int | No | Dia del mes para gastos recurrentes (1-28). Solo si `isRecurring = true` |
+| `registeredBy` | String | Si | UID del admin que registro el gasto |
+| `isActive` | Boolean | Si | Soft delete (default: true) |
+| `createdAt` | Timestamp | Si | Fecha de creacion |
+| `updatedAt` | Timestamp | Si | Fecha de actualizacion |
+
+### Categorias de gasto
+
+| Valor | Descripcion |
+|-------|-------------|
+| `rent` | Alquiler del local |
+| `utilities` | Luz, agua, gas, internet, telefono |
+| `payroll` | Sueldos y salarios del staff |
+| `equipment` | Compra de equipo de gimnasio |
+| `supplies` | Insumos, limpieza, consumibles |
+| `maintenance` | Reparaciones y mantenimiento |
+| `marketing` | Publicidad y promocion |
+| `insurance` | Polizas de seguro |
+| `taxes` | Impuestos y contribuciones |
+| `other` | Gastos que no encajan en otra categoria |
+
+### Reglas de negocio de egresos
+
+1. Todo egreso es registrado manualmente por el admin — no hay generacion automatica
+2. Los egresos son independientes de los pagos (`payments`), son colecciones separadas
+3. Un egreso NO esta vinculado a un miembro (a diferencia de un pago)
+4. `registeredBy` identifica al admin que registro el gasto (auditoria)
+5. Soft delete: `isActive = false` para desactivar, nunca eliminar documentos
+6. Los gastos de meses anteriores son inmutables (solo lectura en la app)
+7. Los gastos recurrentes son recordatorios manuales, no se generan automaticamente
+8. `recurringDay` se limita a 1-28 para evitar inconsistencias con meses cortos (febrero)
+9. Al duplicar un gasto recurrente para el mes actual, se crea un documento nuevo e independiente
+10. Solo el `admin` puede gestionar egresos (informacion financiera sensible)
 
 ---
 

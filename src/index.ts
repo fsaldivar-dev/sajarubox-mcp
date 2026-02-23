@@ -155,6 +155,12 @@ const RESOURCES = [
     description: "Catalogo de ejercicios, bloques, plantillas, rutinas diarias, rutinas personalizadas",
     file: "knowledge/business-rules/12-routines.md",
   },
+  {
+    uri: "sajarubox://business/expenses",
+    name: "Reglas: Egresos y gastos operativos",
+    description: "Registro de gastos del gimnasio, categorias, gastos recurrentes, integracion con reportes",
+    file: "knowledge/business-rules/13-expenses.md",
+  },
 
   // Implementacion iOS (para devs)
   {
@@ -267,6 +273,7 @@ const TOPIC_MAP: Record<string, string | string[]> = {
   classes: "knowledge/business-rules/10-classes.md",
   reports: "knowledge/business-rules/11-reports.md",
   routines: "knowledge/business-rules/12-routines.md",
+  expenses: "knowledge/business-rules/13-expenses.md",
   // iOS arquitectura
   "ios-structure": "knowledge/ios-architecture/01-project-structure.md",
   "ios-mvvm": "knowledge/ios-architecture/02-mvvm-pattern.md",
@@ -297,6 +304,7 @@ const TOPIC_MAP: Record<string, string | string[]> = {
     "knowledge/business-rules/10-classes.md",
     "knowledge/business-rules/11-reports.md",
     "knowledge/business-rules/12-routines.md",
+    "knowledge/business-rules/13-expenses.md",
   ],
   "all-ios-arch": [
     "knowledge/ios-architecture/01-project-structure.md",
@@ -352,7 +360,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "get_context",
       description:
-        "Obtiene documentacion de SajaruBox por tema. Topics disponibles: schema, roles, rules, platforms, sprint, authentication, user-roles, memberships, members, admin-setup, membership-plans, membership-assignments, payments, inventory, classes, reports, routines, ios-structure, ios-mvvm, ios-di, ios-navigation, ios-design-system, ios-sync, ios-firestore, ios-auth, ios-session, ios-new-module, ios-theming, ios-inventory, ios-classes, ios-reports, all-business, all-ios-arch, all-ios-impl",
+        "Obtiene documentacion de SajaruBox por tema. Topics disponibles: schema, roles, rules, platforms, sprint, authentication, user-roles, memberships, members, admin-setup, membership-plans, membership-assignments, payments, inventory, classes, reports, routines, expenses, ios-structure, ios-mvvm, ios-di, ios-navigation, ios-design-system, ios-sync, ios-firestore, ios-auth, ios-session, ios-new-module, ios-theming, ios-inventory, ios-classes, ios-reports, all-business, all-ios-arch, all-ios-impl",
       inputSchema: {
         type: "object",
         properties: {
