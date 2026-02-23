@@ -20,7 +20,7 @@
 
 ```mermaid
 flowchart TD
-    Start([Usuario abre pantalla de registro]) --> FillForm[Llena nombre, email, contrasena, confirmar contrasena]
+    Start([Usuario abre pantalla de registro]) --> FillForm[Llena nombre, apellidos, email, contrasena, confirmar contrasena]
     FillForm --> Validate{Validacion local}
     Validate -->|Falla| ShowFieldError[Mostrar error junto al campo]
     ShowFieldError --> FillForm
@@ -36,7 +36,7 @@ flowchart TD
 
 ### Flujo principal
 
-1. El usuario ingresa: nombre completo, email, contrasena, confirmacion de contrasena
+1. El usuario ingresa: nombre(s), apellido paterno, apellido materno (opcional), email, contrasena, confirmacion de contrasena
 2. Validacion local (ver tabla abajo)
 3. Se crea la cuenta en Firebase Auth
 4. Se ejecuta la **resolucion de sesion** (ver `05-admin-setup.md`)
@@ -54,10 +54,14 @@ Si Firebase Auth rechaza la creacion (email duplicado, red, etc.), se muestra un
 
 | Campo | Regla | Mensaje de error |
 |-------|-------|------------------|
-| Nombre completo | No vacio, minimo 3 caracteres | "El nombre debe tener al menos 3 caracteres." |
+| Nombre(s) | No vacio | "El nombre es obligatorio." |
+| Apellido paterno | No vacio | "El apellido paterno es obligatorio." |
+| Apellido materno | Opcional | — |
 | Email | Formato valido (regex) | "Ingresa un correo electronico valido." |
 | Contrasena | Minimo 6 caracteres | "La contrasena debe tener al menos 6 caracteres." |
 | Confirmar contrasena | Debe coincidir con contrasena | "Las contrasenas no coinciden." |
+
+> **Nota sobre nombres**: Se usan campos separados (`firstName`, `paternalLastName`, `maternalLastName`) alineados con la coleccion `members` y con la convencion de nombres mexicana (dos apellidos). Ver `schema.md` para el esquema completo.
 
 ---
 

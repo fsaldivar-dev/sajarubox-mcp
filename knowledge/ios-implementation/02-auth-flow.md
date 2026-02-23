@@ -85,10 +85,13 @@ func onLoginWithCredentials() {
             
             // 4. Resolver sesion
             let firebaseUser = Auth.auth().currentUser
+            let displayName = firebaseUser?.displayName ?? ""
             _ = try await sessionResolver.resolve(
                 userId: userId.value,
                 email: email,
-                fullName: firebaseUser?.displayName ?? ""
+                firstName: displayName,
+                paternalLastName: "",
+                maternalLastName: nil
             )
             
             // 5. Navegar a home
@@ -130,10 +133,13 @@ func onLoginGoogle() {
                 .authenticate()
             
             let firebaseUser = Auth.auth().currentUser
+            let displayName = firebaseUser?.displayName ?? ""
             _ = try await sessionResolver.resolve(
                 userId: userId.value,
                 email: firebaseUser?.email ?? "",
-                fullName: firebaseUser?.displayName ?? ""
+                firstName: displayName,
+                paternalLastName: "",
+                maternalLastName: nil
             )
             globalRouter.navigator.next(.home)
         } catch {
@@ -189,10 +195,15 @@ func register() {
         var hasError = false
         
         // Validaciones
-        if data.fullName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            data.fullNameError = "Ingresa tu nombre completo."
+        if data.firstName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            data.firstNameError = "El nombre es obligatorio."
             hasError = true
         }
+        if data.paternalLastName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            data.paternalLastNameError = "El apellido paterno es obligatorio."
+            hasError = true
+        }
+        // maternalLastName es opcional
         if data.email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             data.emailError = "Ingresa tu correo electronico."
             hasError = true
@@ -229,7 +240,9 @@ func register() {
             _ = try await sessionResolver.resolve(
                 userId: userId.value,
                 email: data.email,
-                fullName: data.fullName
+                firstName: data.firstName,
+                paternalLastName: data.paternalLastName,
+                maternalLastName: data.maternalLastName.isEmpty ? nil : data.maternalLastName
             )
             globalRouter.navigator.next(.home)
         } catch {

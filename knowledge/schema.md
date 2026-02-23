@@ -27,45 +27,60 @@
 
 El UID de Firebase Auth es el ID del documento. Cada proveedor de auth genera un UID diferente, por lo que un mismo usuario puede tener multiples documentos si usa varios proveedores (ver `user_emails`).
 
-### Campos compartidos (Android + iOS)
+### Esquema unificado (target)
+
+> Este es el esquema target al que ambas plataformas deben converger.
+> Los nombres de campo estan en ingles y alineados con la coleccion `members`.
 
 | Campo | Tipo | Requerido | Descripcion |
 |-------|------|-----------|-------------|
-| `id` | String | Si | UID de Firebase Auth |
+| `id` | String | Si | UID de Firebase Auth (es el document ID) |
 | `email` | String | Si | Email del usuario |
-| `role` | String | Si | `admin`, `receptionist`, `trainer`, `member`, `guest`, `visitor` |
-| `createdAt` | Timestamp | Si | Fecha de creacion |
-| `updatedAt` | Timestamp | Si | Fecha de ultima actualizacion |
-
-### Campos iOS
-
-| Campo | Tipo | Requerido | Descripcion |
-|-------|------|-----------|-------------|
-| `fullName` | String | Si | Nombre completo |
+| `firstName` | String | Si | Nombre(s) de pila |
+| `paternalLastName` | String | Si | Apellido paterno |
+| `maternalLastName` | String | No | Apellido materno |
 | `phone` | String | No | Telefono |
-| `isActive` | Boolean | Si | Si el usuario esta activo |
+| `role` | String | Si | `admin`, `receptionist`, `trainer`, `member`, `guest`, `visitor` |
+| `isActive` | Boolean | Si | Si el usuario esta activo (default: true) |
 | `photoURL` | String | No | URL de foto de perfil |
 | `linkedMemberId` | String | No | FK a `members/{id}` si tiene inscripcion en el gym |
 | `onboardingCompleted` | Boolean | Si | Si completo el onboarding (default: false) |
+| `createdAt` | Timestamp | Si | Fecha de creacion |
+| `updatedAt` | Timestamp | Si | Fecha de ultima actualizacion |
 
-### Campos Android (onboarding)
+**Consistencia con `members`**: Los campos de nombre (`firstName`, `paternalLastName`, `maternalLastName`) usan los mismos nombres que la coleccion `members` para facilitar la vinculacion y mantener consistencia en todo el sistema.
 
-| Campo | Tipo | Requerido | Descripcion |
-|-------|------|-----------|-------------|
-| `nombre` | String | Si | Nombre |
-| `primerApellido` | String | Si | Primer apellido |
-| `segundoApellido` | String | No | Segundo apellido |
-| `telefono` | String | No | Telefono |
-| `telefonoEmergencia` | String | No | Telefono de emergencia |
-| `fechaNacimiento` | Timestamp | No | Fecha de nacimiento |
-| `enfermedades` | String | No | Enfermedades |
-| `lesiones` | String | No | Lesiones |
-| `otros` | String | No | Otros datos de salud |
-| `activo` | Boolean | Si | Si el usuario esta activo |
-| `onboardingCompleted` | Boolean | Si | Si completo el onboarding |
-| `isMinor` | Boolean | No | Si es menor de edad |
+**Computed property `fullName`**: El modelo Swift incluye una computed `fullName` que concatena los campos separados. No se persiste en Firestore.
+
+### Campos legacy de Android (pre-migracion)
+
+Android actualmente escribe los siguientes campos en español. Estan documentados aqui para que iOS pueda leerlos hasta que Android migre al esquema unificado.
+
+| Campo legacy | Tipo | Equivalente unificado |
+|---|---|---|
+| `nombre` | String | → `firstName` |
+| `primerApellido` | String | → `paternalLastName` |
+| `segundoApellido` | String | → `maternalLastName` |
+| `telefono` | String | → `phone` |
+| `activo` | Boolean | → `isActive` |
+| `telefonoEmergencia` | String | (no tiene equivalente en `users`, se gestiona en `members`) |
+| `fechaNacimiento` | Timestamp | (no tiene equivalente en `users`, se gestiona en `members`) |
+| `enfermedades` | String | (datos de salud se gestionan en `members`) |
+| `lesiones` | String | (datos de salud se gestionan en `members`) |
+| `otros` | String | (datos de salud se gestionan en `members`) |
+| `isMinor` | Boolean | (se gestiona en `members`) |
+
+### Campos legacy de iOS (pre-migracion)
+
+iOS actualmente escribe `fullName` como campo unico. Esta documentado para que el decoder lo maneje hasta que iOS migre al esquema unificado.
+
+| Campo legacy | Tipo | Equivalente unificado |
+|---|---|---|
+| `fullName` | String | → `firstName` + `paternalLastName` + `maternalLastName` |
 
 ### Campos Android (tutor, solo si isMinor=true)
+
+Estos campos los escribe Android durante el onboarding para menores de edad:
 
 | Campo | Tipo | Descripcion |
 |-------|------|-------------|
@@ -81,6 +96,27 @@ El UID de Firebase Auth es el ID del documento. Cada proveedor de auth genera un
 | Campo | Tipo | Nota |
 |-------|------|------|
 | `familyGroupId` | String | Pendiente — se gestiona en `members`, no en `users` |
+
+### Decodificacion cross-platform (iOS)
+
+`FirestoreUserRepository.decodeUser(from:)` maneja documentos de TODAS las eras del esquema. Usa decodificacion manual (NO `Codable` automatico) con esta prioridad de fallback:
+
+| Campo modelo Swift | Prioridad 1 (unificado) | Prioridad 2 (legacy iOS) | Prioridad 3 (legacy Android) | Default |
+|---|---|---|---|---|
+| `firstName` | `firstName` | primer token de `fullName` | `nombre` | `""` |
+| `paternalLastName` | `paternalLastName` | segundo token de `fullName` | `primerApellido` | `""` |
+| `maternalLastName` | `maternalLastName` | tercer token de `fullName` | `segundoApellido` | `nil` |
+| `phone` | `phone` | — | `telefono` | `nil` |
+| `isActive` | `isActive` | — | `activo` | `true` |
+
+**REGLA CRITICA**: NUNCA usar `document.data(as: User.self)` (Codable automatico) para decodificar documentos de `users`. Siempre usar el metodo `decodeUser(from:)` de `FirestoreUserRepository` que maneja los tres esquemas (unificado, legacy iOS, legacy Android).
+
+### Plan de migracion
+
+1. **iOS**: Actualizar modelo `User` a campos separados. Escribir nuevos documentos con `firstName`/`paternalLastName`/`maternalLastName`. Mantener `decodeUser(from:)` con fallbacks para leer legacy.
+2. **Android**: Migrar a escribir campos en ingles (`firstName`, `paternalLastName`, `phone`, `isActive`). Mantener lectura de campos legacy para documentos existentes.
+3. **Datos existentes**: No se migran retroactivamente. Los fallbacks del decoder manejan documentos legacy indefinidamente.
+4. **Datos de salud/tutor**: Se quedan en la coleccion `members`, no en `users`. Android puede seguir escribiendolos en `users` para su onboarding, pero iOS los lee como `OnboardingData` y los migra a `members` cuando corresponde.
 
 ---
 

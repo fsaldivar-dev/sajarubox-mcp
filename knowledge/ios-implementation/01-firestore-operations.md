@@ -49,6 +49,7 @@ public actor FirestoreMemberRepository: MemberRepository {
 ### Leer un documento por ID
 
 ```swift
+// Para colecciones single-platform (members, membership_plans, etc.)
 public func getMember(byId memberId: String) async throws -> Member? {
     let document = try await collection.document(memberId).getDocument()
     guard document.exists else { return nil }
@@ -57,6 +58,8 @@ public func getMember(byId memberId: String) async throws -> Member? {
 ```
 
 `document.data(as:)` usa `Codable` automaticamente. El modelo debe conformar a `Codable`.
+
+**EXCEPCION: coleccion `users`** — NUNCA usar `data(as: User.self)` porque los documentos pueden tener campos Android (`nombre`, `telefono`, `activo`) en vez de iOS (`fullName`, `phone`, `isActive`). Usar siempre el metodo `decodeUser(from:)` que maneja ambos esquemas. Ver `schema.md` seccion "Mapeo cross-platform".
 
 ### Leer todos los documentos
 

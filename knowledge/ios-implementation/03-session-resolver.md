@@ -43,7 +43,13 @@ final class SessionResolver {
 ### Paso 1: Buscar por userId directo
 
 ```swift
-func resolve(userId: String, email: String, fullName: String) async throws -> User {
+func resolve(
+    userId: String,
+    email: String,
+    firstName: String,
+    paternalLastName: String,
+    maternalLastName: String?
+) async throws -> User {
     // El userId viene de Firebase Auth (varia segun proveedor)
     if let existingUser = try await userRepository.getUser(byUserId: userId) {
         currentUserManager.user = existingUser
@@ -53,12 +59,22 @@ func resolve(userId: String, email: String, fullName: String) async throws -> Us
 }
 ```
 
+> **Nota**: `getUser(byUserId:)` usa `decodeUser(from:)` que maneja documentos
+> de iOS (legacy `fullName`), Android (legacy `nombre`/`primerApellido`) y
+> el esquema unificado (`firstName`/`paternalLastName`).
+
 ### Paso 2: Sync multi-proveedor via indice de email
 
 Si el usuario no existe por userId, puede existir con otro UID (otro proveedor de auth):
 
 ```swift
-private func resolveByEmailIndex(newUserId: String, email: String, fullName: String) async -> User? {
+private func resolveByEmailIndex(
+    newUserId: String,
+    email: String,
+    firstName: String,
+    paternalLastName: String,
+    maternalLastName: String?
+) async -> User? {
     // 1. Buscar en user_emails/{email}
     guard let primaryUserId = try await userRepository.resolveUserIdByEmail(email) else {
         return nil  // Email no registrado, ir a paso 3
@@ -73,7 +89,9 @@ private func resolveByEmailIndex(newUserId: String, email: String, fullName: Str
     let syncedUser = User(
         id: newUserId,
         email: originalUser.email,
-        fullName: originalUser.fullName.isEmpty ? fullName : originalUser.fullName,
+        firstName: originalUser.firstName.isEmpty ? firstName : originalUser.firstName,
+        paternalLastName: originalUser.paternalLastName.isEmpty ? paternalLastName : originalUser.paternalLastName,
+        maternalLastName: originalUser.maternalLastName ?? maternalLastName,
         phone: originalUser.phone,
         role: originalUser.role,        // Hereda el rol
         createdAt: originalUser.createdAt,
@@ -97,7 +115,13 @@ private func resolveByEmailIndex(newUserId: String, email: String, fullName: Str
 Si no se encontro ni por userId ni por email, es un usuario completamente nuevo:
 
 ```swift
-private func createNewUser(userId: String, email: String, fullName: String) async -> User {
+private func createNewUser(
+    userId: String,
+    email: String,
+    firstName: String,
+    paternalLastName: String,
+    maternalLastName: String?
+) async -> User {
     // 1. Determinar rol
     let role = await determineRoleForNewUser()
     
@@ -105,7 +129,9 @@ private func createNewUser(userId: String, email: String, fullName: String) asyn
     let newUser = User(
         id: userId,
         email: email,
-        fullName: fullName,
+        firstName: firstName,
+        paternalLastName: paternalLastName,
+        maternalLastName: maternalLastName,
         role: role,
         createdAt: Date(),
         updatedAt: Date(),
@@ -203,7 +229,7 @@ private func linkUserAndMember(userId: String, memberId: String) async {
 
 ```mermaid
 flowchart TD
-    Start([resolve userId, email, fullName]) --> Step1{"users/{userId}\nexiste?"}
+    Start([resolve userId, email, firstName, paternalLastName]) --> Step1{"users/{userId}\nexiste?"}
     Step1 -->|Si| ExistingUser[Devolver usuario existente]
     Step1 -->|No| Step2{"user_emails/{email}\nexiste?"}
     Step2 -->|Si| SyncUser["Leer users/{primaryUserId}\nCrear users/{nuevoUserId}\ncon mismo rol"]
@@ -227,7 +253,7 @@ flowchart TD
 ### Flujo resumido en texto
 
 ```
-resolve(userId, email, fullName)
+resolve(userId, email, firstName, paternalLastName, maternalLastName)
     |
     v
 users/{userId} existe?
