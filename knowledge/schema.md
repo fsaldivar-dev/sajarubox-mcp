@@ -20,6 +20,9 @@
 | `classes` | Auto-generado | Clases del gimnasio | Android, iOS |
 | `classBookings` | Auto-generado | Reservas de clases | Android, iOS |
 | `classAttendance` | Auto-generado | Asistencia a clases | Android, iOS |
+| `exercises` | UUID generado | Catalogo de ejercicios del gimnasio | iOS |
+| `routine_templates` | UUID generado | Plantillas reutilizables de rutinas | iOS |
+| `daily_routines` | UUID generado | Rutinas asignadas a un dia/clase | iOS |
 
 ---
 
@@ -400,6 +403,213 @@ Asistencia a clases. Android escribe los registros, iOS los consulta.
 | Campo | Tipo | Requerido | Descripcion |
 |-------|------|-----------|-------------|
 | `memberId` | String | No | FK a `members` (para miembros sin cuenta en la app) |
+
+---
+
+## `exercises/{exerciseId}`
+
+Catalogo de ejercicios del gimnasio. Es la definicion del ejercicio (nombre, tipo, grupo muscular), NO una instancia con series/reps. Los trainers y admins gestionan el catalogo. Ver `business-rules/12-routines.md` para flujos completos.
+
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `id` | String | Si | UUID generado |
+| `name` | String | Si | Nombre del ejercicio (ej: "Jab-Cross en costal") |
+| `type` | String | Si | `boxing`, `cardio`, `strength`, `flexibility`, `conditioning` |
+| `muscleGroup` | String | Si | `chest`, `back`, `legs`, `shoulders`, `arms`, `core`, `cardio`, `full_body` |
+| `defaultMeasurementType` | String | Si | `rounds`, `series_reps`, `time` |
+| `description` | String | No | Descripcion o instrucciones del ejercicio |
+| `imageURL` | String | No | URL de imagen ilustrativa (futuro) |
+| `isActive` | Boolean | Si | Soft delete (default: true) |
+| `createdBy` | String | Si | UID del admin/trainer que creo el ejercicio |
+| `createdAt` | Timestamp | Si | Fecha de creacion |
+| `updatedAt` | Timestamp | Si | Fecha de actualizacion |
+
+### Tipos de ejercicio
+
+| Valor | Descripcion |
+|-------|-------------|
+| `boxing` | Trabajo en costal, sombra, sparring, combinaciones |
+| `cardio` | Saltar cuerda, correr, bicicleta |
+| `strength` | Pesas, maquinas, peso corporal con resistencia |
+| `flexibility` | Estiramientos, movilidad articular |
+| `conditioning` | Circuitos, HIIT, burpees, ejercicios funcionales |
+
+### Grupos musculares
+
+| Valor | Descripcion |
+|-------|-------------|
+| `chest` | Pecho |
+| `back` | Espalda |
+| `legs` | Piernas |
+| `shoulders` | Hombros |
+| `arms` | Brazos |
+| `core` | Core / Abdomen |
+| `cardio` | Cardiovascular |
+| `full_body` | Cuerpo completo |
+
+### Tipos de medicion
+
+Determina que campos son relevantes al instanciar el ejercicio en un bloque:
+
+| Valor | Campos relevantes | Ejemplo |
+|-------|-------------------|---------|
+| `rounds` | rounds, roundDurationSeconds, restBetweenRoundsSeconds | 3 rounds x 180s, 60s descanso |
+| `series_reps` | sets, repetitions, weight (opcional) | 3 x 15, 20 kg |
+| `time` | durationSeconds | 45 segundos |
+
+### Reglas de negocio de ejercicios
+
+1. `name` es unico dentro del catalogo activo (case-insensitive)
+2. Soft delete: `isActive = false` para desactivar, nunca eliminar documentos
+3. Si se desactiva un ejercicio, las instancias existentes en rutinas NO se afectan (referencia debil)
+4. Solo `admin` y `trainer` pueden crear/editar ejercicios
+
+---
+
+## `routine_templates/{templateId}`
+
+Plantillas reutilizables de rutinas. El trainer las crea una vez y las aplica a multiples dias. Contienen bloques y ejercicios embebidos. Ver `business-rules/12-routines.md`.
+
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `id` | String | Si | UUID generado |
+| `name` | String | Si | Nombre de la plantilla (ej: "Boxeo + Cardio") |
+| `description` | String | No | Descripcion de la plantilla |
+| `blocks` | Array\<Map\> | Si | Bloques de la plantilla (ver estructura abajo) |
+| `estimatedDurationMinutes` | Int | Si | Duracion total estimada en minutos |
+| `timesUsed` | Int | Si | Veces que se ha aplicado a un dia (default: 0) |
+| `isFavorite` | Boolean | Si | Marcada como favorita (default: false) |
+| `createdBy` | String | Si | UID del trainer/admin que la creo |
+| `gymId` | String | Si | Siempre `"sajarubox"` |
+| `isActive` | Boolean | Si | Soft delete (default: true) |
+| `createdAt` | Timestamp | Si | Fecha de creacion |
+| `updatedAt` | Timestamp | Si | Fecha de actualizacion |
+
+#### Estructura de `blocks` (Array de Maps)
+
+Cada bloque es una agrupacion tematica de ejercicios (ej: "Calentamiento", "Tecnica").
+
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `blockType` | String | Si | `warmup`, `technique`, `strength`, `conditioning`, `cooldown`, `custom` |
+| `blockName` | String | Si | Nombre del bloque (puede ser custom) |
+| `order` | Int | Si | Posicion del bloque en la rutina (0-based) |
+| `estimatedMinutes` | Int | No | Duracion estimada del bloque |
+| `exercises` | Array\<Map\> | Si | Ejercicios instanciados del bloque |
+
+#### Estructura de `blocks[].exercises` (Array de Maps)
+
+Cada ejercicio instanciado tiene configuracion especifica de ejecucion.
+
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `exerciseId` | String | Si | FK a `exercises/{id}` (referencia debil) |
+| `exerciseName` | String | Si | Nombre copiado del catalogo (para independencia) |
+| `measurementType` | String | Si | `rounds`, `series_reps`, `time` |
+| `rounds` | Int | Condicional | Numero de rounds (si measurementType = rounds) |
+| `roundDurationSeconds` | Int | Condicional | Duracion de cada round en segundos |
+| `restBetweenRoundsSeconds` | Int | No | Descanso entre rounds en segundos |
+| `sets` | Int | Condicional | Numero de series (si measurementType = series_reps) |
+| `repetitions` | Int | Condicional | Repeticiones por serie |
+| `weight` | Double | No | Peso en kg (opcional, si series_reps) |
+| `durationSeconds` | Int | Condicional | Duracion total en segundos (si measurementType = time) |
+| `notes` | String | No | Notas del trainer |
+| `order` | Int | Si | Posicion del ejercicio dentro del bloque (0-based) |
+
+### Reglas de negocio de plantillas
+
+1. Al menos 1 bloque requerido, cada bloque con al menos 1 ejercicio
+2. `timesUsed` se incrementa automaticamente al crear una DailyRoutine desde esta plantilla
+3. Un trainer solo puede ver/editar sus propias plantillas. Un admin puede ver/editar todas
+4. Soft delete: `isActive = false`
+
+---
+
+## `daily_routines/{routineId}`
+
+Rutina asignada a un dia especifico y opcionalmente a una clase (GymClass). Es lo que el miembro ve como "la rutina de hoy". Los bloques se copian al crear (deep copy), son independientes de la plantilla de origen. Ver `business-rules/12-routines.md`.
+
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `id` | String | Si | UUID generado |
+| `date` | Timestamp | Si | Fecha del dia (normalizada a 00:00 UTC) |
+| `classId` | String | No | FK a `classes/{id}` si esta vinculada a una clase |
+| `templateId` | String | No | FK a `routine_templates/{id}` si se creo desde plantilla |
+| `name` | String | Si | Nombre de la rutina (ej: "Boxeo + Cardio") |
+| `blocks` | Array\<Map\> | Si | Misma estructura que en `routine_templates` |
+| `estimatedDurationMinutes` | Int | Si | Duracion total estimada |
+| `assignedBy` | String | Si | UID del trainer/admin que asigno la rutina |
+| `gymId` | String | Si | Siempre `"sajarubox"` |
+| `createdAt` | Timestamp | Si | Fecha de creacion |
+| `updatedAt` | Timestamp | Si | Fecha de actualizacion |
+
+### Reglas de negocio de rutinas diarias
+
+1. No se puede duplicar: misma `date` + mismo `classId` solo puede tener una rutina
+2. Si `classId` es null, solo puede haber una rutina general por dia
+3. Al crear desde plantilla, los bloques se copian (deep copy). Cambios a la plantilla no afectan rutinas existentes
+4. Cualquier autenticado puede leer las rutinas del dia. Solo admin/trainer pueden escribir
+5. No se eliminan: se sobreescriben o se editan
+
+---
+
+## Colecciones futuras (backlog)
+
+> Estas colecciones se implementaran en fases posteriores. Documentadas aqui para referencia.
+
+### `member_routines/{routineId}` (Fase 3)
+
+Rutinas personalizadas asignadas por un trainer a un miembro especifico.
+
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `id` | String | Si | UUID generado |
+| `memberId` | String | Si | FK a `members/{id}` |
+| `trainerId` | String | Si | UID del trainer que creo la rutina |
+| `name` | String | Si | Nombre de la rutina |
+| `description` | String | No | Descripcion o notas del trainer |
+| `blocks` | Array\<Map\> | Si | Misma estructura de bloques |
+| `isWeekly` | Boolean | Si | Si es una rutina semanal recurrente |
+| `dayOfWeek` | Int | Condicional | Dia de la semana (0=Domingo) si isWeekly |
+| `startDate` | Timestamp | No | Fecha de inicio del programa |
+| `endDate` | Timestamp | No | Fecha de fin del programa |
+| `gymId` | String | Si | Siempre `"sajarubox"` |
+| `isActive` | Boolean | Si | Soft delete (default: true) |
+| `createdAt` | Timestamp | Si | Fecha de creacion |
+| `updatedAt` | Timestamp | Si | Fecha de actualizacion |
+
+### `progress_logs/{logId}` (Fase 3)
+
+Registros de progreso de un miembro en una rutina.
+
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `id` | String | Si | UUID generado |
+| `memberId` | String | Si | FK a `members/{id}` |
+| `memberRoutineId` | String | Si | FK a `member_routines/{id}` |
+| `exerciseId` | String | Si | FK a `exercises/{id}` |
+| `date` | Timestamp | Si | Fecha del registro |
+| `setsCompleted` | Int | No | Series completadas |
+| `repsCompleted` | Int | No | Repeticiones completadas |
+| `weightUsed` | Double | No | Peso utilizado (kg) |
+| `durationSeconds` | Int | No | Duracion (para ejercicios de tiempo) |
+| `notes` | String | No | Notas del miembro o trainer |
+| `createdAt` | Timestamp | Si | Fecha de creacion |
+
+### `equipment/{equipmentId}` (Fase 4)
+
+Inventario de equipo del gimnasio.
+
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `id` | String | Si | UUID generado |
+| `name` | String | Si | Nombre del equipo (ej: "Costal de boxeo") |
+| `category` | String | Si | `boxing`, `weights`, `cardio`, `functional`, `other` |
+| `quantity` | Int | Si | Cantidad disponible |
+| `description` | String | No | Descripcion o notas |
+| `isActive` | Boolean | Si | Soft delete (default: true) |
+| `createdAt` | Timestamp | Si | Fecha de creacion |
+| `updatedAt` | Timestamp | Si | Fecha de actualizacion |
 
 ---
 

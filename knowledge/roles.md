@@ -40,6 +40,7 @@
 | Membresias | Si | Si | No | No |
 | Inventario | Si | Si | No | No |
 | Reportes | Si | Si | No | No |
+| Rutinas | Si | No | Si | No |
 | Perfil | Si | Si | Si | Si |
 | Staff | Si | No | No | No |
 
@@ -92,6 +93,34 @@
 | Crear reserva (cualquiera) | Si | Si | No | No |
 | Crear su propia reserva | Si | Si | Si | Si |
 | Cancelar reservas | Si | Si | No | No |
+
+#### `exercises` (catalogo de ejercicios)
+
+| Operacion | admin | receptionist | trainer | member |
+|-----------|:-----:|:------------:|:-------:|:------:|
+| Ver catalogo | Si | Si | Si | Si |
+| Crear ejercicio | Si | No | Si | No |
+| Editar ejercicio | Si | No | Si | No |
+| Desactivar ejercicio | Si | No | Si | No |
+
+#### `routine_templates` (plantillas de rutinas)
+
+| Operacion | admin | receptionist | trainer | member |
+|-----------|:-----:|:------------:|:-------:|:------:|
+| Ver todas las plantillas | Si | No | No | No |
+| Ver sus propias plantillas | Si | No | Si | No |
+| Crear plantilla | Si | No | Si | No |
+| Editar plantilla propia | Si | No | Si | No |
+| Editar plantilla de otro | Si | No | No | No |
+| Eliminar plantilla | Si | No | Si (propia) | No |
+
+#### `daily_routines` (rutinas diarias)
+
+| Operacion | admin | receptionist | trainer | member |
+|-----------|:-----:|:------------:|:-------:|:------:|
+| Ver rutina del dia | Si | Si | Si | Si |
+| Asignar rutina a un dia | Si | No | Si | No |
+| Editar rutina del dia | Si | No | Si | No |
 
 #### `products` (inventario)
 
