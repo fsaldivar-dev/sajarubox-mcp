@@ -258,6 +258,17 @@ Si es el mismo plan pero el precio cambio, mostrar aviso al admin antes de confi
 > Para planes `time_based`, solo registra asistencia sin modificar la membresia.
 > Si las visitas llegan a 0, la membresia se marca como `expired`.
 
+### Relacion con modulo de clases
+
+Cuando hay clases programadas, el check-in de miembros se interpreta asi:
+
+- `check_ins` registra entrada general al gimnasio.
+- Si existe una clase objetivo en ventana operativa, ademas debe registrarse `classAttendance`.
+- La ventana operativa de clase es `-10 min` a `+10 min` respecto a `horaInicio`.
+- Fuera de ventana, el flujo operativo de clases bloquea el check-in y no registra ni `classAttendance` ni `check_ins`.
+
+Esto evita mezclar asistencia de clase con acceso general y mantiene trazabilidad para reportes.
+
 ### Diagrama
 
 ```mermaid
@@ -295,6 +306,21 @@ flowchart TD
 7. **Si `remainingVisits != nil`**: se descuenta 1 y se actualiza el miembro en Firestore
 8. **Si `remainingVisits` llega a 0**: se marca `membershipStatus = expired`
 9. Se muestra mensaje de bienvenida con visitas restantes (si aplica)
+
+### Clase objetivo para check-in de clase
+
+Si el flujo de recepcion incluye clases:
+
+1. Buscar la proxima clase activa del dia.
+2. Evaluar ventana `classStart - 10` / `classStart + 10`.
+3. Si esta dentro de ventana:
+   - Confirmar cupo (`capacidadMax - asistenciasConfirmadas > 0`).
+   - Registrar `classAttendance`.
+4. Si esta fuera de ventana:
+   - Antes de abrir: bloquear check-in e informar hora de apertura.
+   - Despues de cerrar: bloquear check-in y esperar siguiente clase disponible.
+
+> Alcance de implementacion actual: reservas (`classBookings`) fuera de este flujo.
 
 ### Descuento de visitas por tipo de plan
 
@@ -569,3 +595,6 @@ Ver `08-payments.md` para detalles de cobros.
 18. El QuickActionSheet permite acciones rapidas sin necesidad de abrir el formulario completo de edicion
 19. La renovacion rapida pre-selecciona el plan anterior y calcula la fecha de inicio inteligentemente (dia despues del vencimiento si aun no expiro, o hoy si ya expiro)
 20. La opcion de renovar esta disponible cuando el miembro tiene plan previo y su status es `expired`, `suspended`, o `active` con <=3 dias restantes
+21. El check-in general (`check_ins`) y la asistencia de clase (`classAttendance`) son registros distintos: uno no sustituye al otro
+22. Para check-in de clase, la ventana operativa canonica es `-10 min` / `+10 min` sobre `horaInicio`
+23. Fuera de ventana de clase se bloquea el check-in; no se crea `classAttendance` ni `check_ins`

@@ -39,7 +39,7 @@
 | Clases | Si | Si | Si | No |
 | Membresias | Si | Si | No | No |
 | Inventario | Si | Si | No | No |
-| Reportes | Si | Si | No | No |
+| Reportes | Si | No | No | No |
 | Rutinas | Si | No | Si | No |
 | Perfil | Si | Si | Si | Si |
 | Staff | Si | No | No | No |
@@ -136,7 +136,15 @@
 |-----------|:-----:|:------------:|:-------:|:------:|
 | Ver todos los pagos | Si | Si | No | No |
 | Registrar cobro | Si | Si | No | No |
-| Ver reportes | Si | Si | No | No |
+| Ver reportes | Si | No | No | No |
+
+#### `check_ins`
+
+| Operacion | admin | receptionist | trainer | member |
+|-----------|:-----:|:------------:|:-------:|:------:|
+| Registrar check-in | Si | Si | No | No |
+| Ver check-ins del dia | Si | Si | No | No |
+| Ver historial operativo | Si | Si | No | No |
 
 ---
 

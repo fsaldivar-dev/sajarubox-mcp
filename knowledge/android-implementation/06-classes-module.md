@@ -4,6 +4,15 @@
 > El admin puede crear, editar y eliminar clases desde iOS.
 > Coleccion Firestore: `classes`
 
+## Compatibilidad operativa Android/iOS (check-in de clase)
+
+- Regla compartida de ventana: `-10 min` a `+10 min` respecto a `horaInicio`.
+- En el flujo operativo actual de recepcion/admin:
+  - Dentro de ventana: se confirma `classAttendance`.
+  - Fuera de ventana: se bloquea el check-in de clase.
+- Alcance actual: reservas (`classBookings`) fuera del flujo de check-in operativo.
+- Android mantiene su flujo de reservas para miembros; iOS no depende de reservas para confirmar asistencia en este ciclo.
+
 ---
 
 ## Schema del documento `classes/{classId}`

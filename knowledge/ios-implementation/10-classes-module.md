@@ -89,7 +89,9 @@ public protocol GymClassRepository: Sendable {
 
 ```swift
 public protocol ClassAttendanceRepository: Sendable {
+    func createAttendance(_ attendance: ClassAttendance) async throws -> ClassAttendance
     func getAttendance(for classId: String) async throws -> [ClassAttendance]
+    func countConfirmedAttendance(for classId: String) async throws -> Int
     func getAttendanceForMember(_ memberId: String, in range: ClosedRange<Date>) async throws -> [ClassAttendance]
 }
 ```
@@ -160,7 +162,7 @@ Todas las clases del lote comparten el mismo `recurrenceGroupId`.
 - `NavigationStack` con `.themedNavigationViewStyle()`
 - Selector de semana (ScrollView horizontal con chips de dia)
 - Lista de clases del dia seleccionado ordenadas por `startTime`
-- Cada fila muestra: hora, nombre, duracion, capacidad
+- Cada fila muestra: hora, nombre, duracion y ocupacion dinamica (`asistenciasConfirmadas/maxCapacity`)
 - `.searchable` para buscar clases por nombre
 - Toolbar con boton "+" para crear
 - `.sheet(item:)` para formulario y detalle
@@ -176,7 +178,29 @@ Todas las clases del lote comparten el mismo `recurrenceGroupId`.
 
 - Info de la clase (nombre, fecha, hora, duracion, capacidad)
 - Seccion de asistencia (de `classAttendance`)
-- Cada fila: nombre/ID del usuario o miembro + badge asistio/falta
+- Cada fila: avatar (foto si existe), nombre del miembro y subtitle contextual
+- Fallback si falta el miembro: se muestra `memberId`/`userId` para no perder trazabilidad operativa
+
+---
+
+## Integracion con check-in de miembros
+
+La regla de negocio define una relacion explicita entre check-in de recepcion y asistencia de clase:
+
+- Ventana operativa de clase: `-10 min` a `+10 min` sobre `horaInicio`.
+- Dentro de ventana:
+  - Validar cupo por asistencias confirmadas.
+  - Confirmar asistencia en `classAttendance`.
+  - Mantener `check_ins` como registro de acceso general.
+- Fuera de ventana:
+  - Bloquear check-in.
+  - No crear `classAttendance` ni `check_ins`.
+
+Estado actual en iOS:
+- El modulo de clases consulta asistencia (`ClassAttendanceRepository`) y maneja CRUD de clases.
+- La confirmacion de asistencia desde el flujo de check-in de miembros esta cableada en `CheckInViewModel`.
+- Reservas (`classBookings`) no forman parte de este flujo operativo en esta iteracion.
+- La implementacion preserva separacion de responsabilidades (`check_ins` != `classAttendance`).
 
 ---
 

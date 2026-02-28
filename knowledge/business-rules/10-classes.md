@@ -64,6 +64,51 @@ Una **asistencia** (attendance) registra si un usuario/miembro efectivamente asi
 
 ---
 
+## Ventana de check-in para clase (operativa)
+
+Regla canonica para recepcion/admin:
+
+- El check-in de clase se habilita desde **10 minutos antes** de `horaInicio`.
+- El check-in de clase se cierra a los **10 minutos despues** de `horaInicio`.
+- Fuera de ventana:
+  - Antes de abrir: se bloquea el check-in y se informa la hora de apertura.
+  - Despues de cerrar: se bloquea el check-in y se espera la siguiente clase.
+
+Formula de ventana:
+
+| Limite | Calculo |
+|---|---|
+| Apertura | `classStart - 10 min` |
+| Cierre | `classStart + 10 min` |
+
+---
+
+## Vinculo check-in gimnasio vs check-in de clase
+
+Para evitar ambiguedad entre modulos:
+
+- `check_ins` = acceso general al gimnasio (control de entrada y visitas de membresia).
+- `classBookings` = separacion de lugar/cupo para una clase especifica.
+- `classAttendance` = confirmacion de asistencia real a una clase especifica.
+
+Regla de consistencia:
+
+1. Si un miembro llega dentro de ventana de clase:
+   - Debe existir cupo disponible.
+   - Se registra asistencia en `classAttendance`.
+2. Si llega fuera de ventana:
+   - Se bloquea el check-in del flujo de clases.
+   - No se crea `classAttendance` ni `check_ins`.
+3. En el flujo operativo actual, el check-in de recepcion orientado a clases exige ventana valida.
+
+---
+
+## Regla de cupo (no sobreventa)
+
+- `cupoDisponible = capacidadMax - asistenciasConfirmadas`.
+- No se permite confirmar asistencia si `cupoDisponible <= 0`.
+- En este ciclo, las reservas (`classBookings`) quedan fuera del alcance del check-in operativo.
+
 ## Reglas de asistencia (attendance)
 
 - Se registra despues de que la clase ocurre

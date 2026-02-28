@@ -162,3 +162,17 @@ Si se crea el admin pero falla la escritura de `app_config/setup`:
 4. El indice de email (`user_emails/{email}`) se crea al momento del registro para futuras sincronizaciones
 5. La sincronizacion multi-proveedor hereda el rol y datos del usuario original
 6. No se debe eliminar `app_config/setup` manualmente; hacerlo permitiria un segundo admin
+7. Solo `admin` puede promover usuarios a `receptionist` o `trainer`
+8. `receptionist` y `trainer` no pueden cambiar roles ni crear staff
+9. Un `admin` no puede cambiar su propio rol para evitar dejar el sistema sin administracion
+
+---
+
+## Gobernanza operativa de administrador
+
+Estas reglas son canonicas para todos los clientes:
+
+- El primer usuario autenticado del sistema queda como `admin`.
+- Cualquier usuario posterior se crea como `member` por defecto.
+- La elevacion de permisos (staff) es una accion administrativa explicita, nunca automatica.
+- El documento `app_config/setup` es el ancla de gobernanza para evitar multiples "primeros admin".

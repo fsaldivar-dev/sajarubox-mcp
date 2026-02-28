@@ -13,7 +13,7 @@
 | `members` | UUID generado | Miembros del gimnasio (no requieren cuenta) | iOS |
 | `membership_plans` | UUID generado | Planes de membresia configurables | iOS |
 | `user_emails` | Email normalizado | Indice email → userId para sync multi-proveedor | iOS |
-| `app_config` | `"setup"` | Configuracion global (admin setup) | iOS |
+| `app_config` | `"setup"`, `"gym"` | Configuracion global (admin setup + datos del gym) | iOS |
 | `check_ins` | UUID generado | Registros de asistencia (check-in/check-out) | iOS |
 | `payments` | UUID generado | Pagos y cobros (membresias, pases de dia, productos) | iOS |
 | `products` | UUID generado | Catalogo de productos y servicios del gimnasio | iOS |
@@ -288,6 +288,30 @@ Documento unico que indica si ya se configuro el primer admin. Solo iOS lo gesti
 |-------|------|-----------|-------------|
 | `adminUserId` | String | Si | UID del usuario admin |
 | `createdAt` | Timestamp | Si | Fecha de creacion |
+
+---
+
+## `app_config/gym`
+
+Documento singleton con datos del gimnasio. Ver `business-rules/14-gym-config.md` para flujos completos.
+
+| Campo | Tipo | Requerido | Descripcion |
+|-------|------|-----------|-------------|
+| `gymName` | String | Si | Nombre del gimnasio (default: "SajaruBox") |
+| `phone` | String | No | Telefono de contacto |
+| `email` | String | No | Email de contacto |
+| `address` | String | No | Direccion fisica |
+| `logoURL` | String | No | URL del logotipo (futuro) |
+| `dayPassPrice` | Double | Si | Precio del pase de dia (default: 30.0) |
+| `currency` | String | Si | Moneda ISO 4217 (default: "MXN") |
+| `openTime` | String | No | Hora de apertura (formato HH:mm) |
+| `closeTime` | String | No | Hora de cierre (formato HH:mm) |
+| `operatingDays` | Array\<Int\> | No | Dias de operacion (1=Lunes..7=Domingo) |
+| `maxCapacity` | Int | No | Capacidad maxima del gym |
+| `welcomeMessage` | String | No | Mensaje de bienvenida |
+| `socialMedia` | Map | No | `{ instagram, facebook, whatsapp }` |
+| `updatedAt` | Timestamp | Si | Fecha de ultima actualizacion |
+| `updatedBy` | String | Si | UID del admin que actualizo |
 
 ---
 

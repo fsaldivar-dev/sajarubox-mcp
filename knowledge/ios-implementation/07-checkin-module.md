@@ -31,6 +31,8 @@ graph TD
     MembersView --> MemberViewModel
     CheckInViewModel --> CheckInRepository
     CheckInViewModel --> MemberRepository
+    CheckInViewModel --> GymClassRepository
+    CheckInViewModel --> ClassAttendanceRepository
     CheckInViewModel --> CurrentUserManager
     CheckInRepository --> FirestoreCheckInRepository
     CheckInResultView --> CheckInViewData
@@ -79,14 +81,18 @@ sequenceDiagram
 1. Valida que el miembro este activo (`isActive == true`)
 2. Valida que `membershipStatus == active`
 3. Si el plan tiene `remainingVisits`, valida que sea > 0
-4. Crea un documento nuevo en `check_ins` (registro de asistencia)
-5. **Si el plan tiene `remainingVisits`**: descuenta 1 visita via `memberRepository.updateMember()`
-6. **Si `remainingVisits` llega a 0**: marca `membershipStatus = .expired`
-7. Muestra mensaje de bienvenida con visitas restantes (si aplica)
+4. Resuelve clase objetivo del dia y valida ventana `-10/+10`
+5. Valida cupo por asistencias confirmadas (`classAttendance.attended == true`)
+6. Registra `classAttendance`
+7. Crea documento en `check_ins`
+8. **Si el plan tiene `remainingVisits`**: descuenta 1 visita via `memberRepository.updateMember()`
+9. **Si `remainingVisits` llega a 0**: marca `membershipStatus = .expired`
+10. Muestra mensaje con clase objetivo y visitas restantes (si aplica)
 
 ### Lo que el check-in hace
 
 - Registra asistencia (documento en `check_ins`)
+- Registra asistencia de clase en `classAttendance` cuando la ventana es valida
 - Descuenta `remainingVisits` para planes `visit_based` y `mixed`
 - Marca membresia como `expired` si las visitas llegan a 0
 - Muestra conteo de check-ins del dia y visitas restantes
@@ -95,6 +101,24 @@ sequenceDiagram
 
 - **NO modifica `membershipEndDate`** — la expiracion por fecha se maneja en `MemberViewModel.loadMembers()`
 - **NO cobra pagos** — eso se maneja en `MemberFormView` al asignar plan
+- **NO gestiona reservas** (`classBookings`) en este flujo
+
+### Integracion implementada con clases (regla operativa)
+
+Cuando recepcion use check-in orientado a clases:
+
+1. Resolver proxima clase activa del dia.
+2. Validar ventana operativa de clase: `-10 min` a `+10 min` de `horaInicio`.
+3. Si esta dentro de ventana:
+   - Validar cupo (`capacidadMax - asistenciasConfirmadas > 0`).
+   - Confirmar asistencia en `classAttendance`.
+4. Si esta fuera de ventana:
+   - Antes: bloquear check-in e informar hora de apertura.
+   - Despues: bloquear check-in e informar que debe esperar la siguiente clase.
+
+Estado:
+- Implementado en `CheckInViewModel` para check-in manual y flujo de visita rapida.
+- Reservas (`classBookings`) siguen fuera de alcance en esta iteracion.
 
 ### Validacion por estado de membresia
 

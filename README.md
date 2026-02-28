@@ -11,6 +11,8 @@ Expone herramientas que Claude puede invocar para consultar:
 | Herramienta | Descripción |
 |-------------|-------------|
 | `get_context(schema)` | Schema de Firestore (colecciones, campos, tipos) |
+| `get_context(data-sources)` | Especificación cross-platform de fuentes de datos consultables |
+| `get_context(storage-buckets)` | Inventario de buckets Storage y mapeo por ambiente |
 | `get_context(rules)` | Reglas de negocio cross-platform |
 | `get_context(roles)` | Roles de usuario y permisos por colección |
 | `get_context(platforms)` | Descripción de cada plataforma y su stack |
@@ -29,6 +31,8 @@ sajarubox-mcp/
 │   ├── schema.md          # Schema de Firestore
 │   ├── roles.md           # Roles y permisos
 │   ├── platforms.md       # Plataformas (Android, iOS, Web)
+│   ├── data-sources.md    # Fuentes de datos (Firestore/Auth/Storage/CLI)
+│   ├── storage-buckets.md # Buckets de Firebase Storage por ambiente
 │   └── business-rules.md  # Reglas de negocio
 ├── sprints/
 │   └── sprint-01.md       # Sprints del proyecto
@@ -66,7 +70,7 @@ Luego **reinicia Claude Code** para que cargue el servidor.
 Cuando hagas cambios en los archivos de `knowledge/` o `sprints/`, necesitas rebuildar y recargar:
 
 ```bash
-./scripts/refresh.sh
+./scripts/refresh.sh --force
 ```
 
 El script:
@@ -74,6 +78,10 @@ El script:
 2. Compila TypeScript → `dist/`
 3. Mata el proceso MCP en ejecución
 4. Claude Code lo reinicia automáticamente en la próxima invocación
+
+Verificacion recomendada despues del refresh:
+1. Ejecutar `list_topics` y confirmar que aparecen los topics nuevos/actualizados
+2. Ejecutar `get_context` en los topics cambiados (por ejemplo `user-roles`, `admin-setup`, `membership-assignments`, `classes`)
 
 ---
 
@@ -109,8 +117,10 @@ El MCP sigue **semver**:
 
 ```
 1. Edita knowledge/*.md o sprints/*.md
-2. Ejecuta ./scripts/refresh.sh
-3. Reinicia Claude Code
-4. Verifica con: get_context(rules) u otra herramienta
-5. Haz commit con mensaje descriptivo
+2. Si cambias topics/resources, actualiza src/index.ts
+3. Alinea version en package.json + src/index.ts + package-lock.json
+4. Ejecuta ./scripts/refresh.sh --force
+5. Reinicia Claude Code
+6. Verifica con: list_topics y get_context(topic)
+7. Haz commit con mensaje descriptivo
 ```
