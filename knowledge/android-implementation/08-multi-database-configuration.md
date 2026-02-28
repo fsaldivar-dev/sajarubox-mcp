@@ -44,11 +44,13 @@ Firebase Project: sajarubox
 
 ### Mapeo por Build Variant
 
-| Build Variant | Database ID | Environment | Application ID |
-|--------------|-------------|-------------|----------------|
-| debug        | `test`      | `test`      | `com.shajaru.sajaruboxapp` |
-| staging      | `stage`     | `stage`     | `com.shajaru.sajaruboxapp.stage` |
-| release      | `prod`      | `prod`      | `com.shajaru.sajaruboxapp` |
+La configuración se determina automáticamente usando BuildConfig:
+
+| Build Variant | Database ID | Environment | Application ID | BuildConfig |
+|--------------|-------------|-------------|----------------|-------------|
+| debug        | `test`      | `test`      | `com.shajaru.sajaruboxapp` | FIRESTORE_DATABASE_ID="test" |
+| staging      | `stage`     | `stage`     | `com.shajaru.sajaruboxapp.stage` | FIRESTORE_DATABASE_ID="stage" |
+| release      | `prod`      | `prod`      | `com.shajaru.sajaruboxapp` | FIRESTORE_DATABASE_ID="prod" |
 
 ---
 
@@ -58,34 +60,53 @@ Firebase Project: sajarubox
 
 **Ubicación:** `app/src/main/kotlin/com/shajaru/sajaruboxapp/config/FirestoreConfig.kt`
 
-**Propósito:** Objeto singleton que determina la configuración según el build variant.
+**Propósito:** Objeto singleton que determina la configuración según el build variant usando BuildConfig.
 
 **Propiedades:**
 
 ```kotlin
 object FirestoreConfig {
-    // ID de la database a usar
+    // ID de la database a usar (desde BuildConfig)
     val databaseId: String
-        get() = when {
-            BuildConfig.DEBUG -> "dev"
-            BuildConfig.BUILD_TYPE == "staging" -> "stage"
-            else -> "(default)"
-        }
+        get() = BuildConfig.FIRESTORE_DATABASE_ID
 
-    // Valor para filtros de environment en queries
+    // Valor para filtros de environment en queries (desde BuildConfig)
     val environment: String
-        get() = when {
-            BuildConfig.DEBUG -> "dev"
-            BuildConfig.BUILD_TYPE == "staging" -> "stage"
-            else -> "prod"
-        }
+        get() = BuildConfig.ENVIRONMENT
 
     // Helpers
     val isDebug: Boolean
+        get() = BuildConfig.DEBUG
+
     val isStaging: Boolean
+        get() = environment == "stage"
+
     val isProduction: Boolean
+        get() = environment == "prod"
 
     fun getEnvironmentInfo(): String
+}
+```
+
+**Configuración en build.gradle.kts:**
+```kotlin
+buildTypes {
+    getByName("debug") {
+        buildConfigField("String", "FIRESTORE_DATABASE_ID", "\"test\"")
+        buildConfigField("String", "ENVIRONMENT", "\"test\"")
+    }
+    create("staging") {
+        buildConfigField("String", "FIRESTORE_DATABASE_ID", "\"stage\"")
+        buildConfigField("String", "ENVIRONMENT", "\"stage\"")
+    }
+    getByName("release") {
+        buildConfigField("String", "FIRESTORE_DATABASE_ID", "\"prod\"")
+        buildConfigField("String", "ENVIRONMENT", "\"prod\"")
+    }
+}
+
+buildFeatures {
+    buildConfig = true  // Requerido para generar BuildConfig
 }
 ```
 
@@ -291,11 +312,19 @@ Cada database necesita sus propios índices compuestos. Firebase mostrará error
 ### Build Types (build.gradle.kts)
 
 ```kotlin
+android {
+    buildFeatures {
+        buildConfig = true  // ✅ Requerido para generar BuildConfig
+        compose = true
+    }
+}
+
 buildTypes {
     getByName("debug") {
         isMinifyEnabled = false
         signingConfig = signingConfigs.getByName("debug")
-        // Usa database "dev"
+        buildConfigField("String", "FIRESTORE_DATABASE_ID", "\"test\"")
+        buildConfigField("String", "ENVIRONMENT", "\"test\"")
     }
 
     create("staging") {
@@ -303,30 +332,36 @@ buildTypes {
         applicationIdSuffix = ".stage"
         versionNameSuffix = "-stage"
         signingConfig = signingConfigs.getByName("staging")
-        // Usa database "stage"
+        buildConfigField("String", "FIRESTORE_DATABASE_ID", "\"stage\"")
+        buildConfigField("String", "ENVIRONMENT", "\"stage\"")
     }
 
     getByName("release") {
-        isMinifyEnabled = true
+        isMinifyEnabled = false
         proguardFiles(/* ... */)
         signingConfig = signingConfigs.getByName("release")
-        // Usa database "(default)"
+        buildConfigField("String", "FIRESTORE_DATABASE_ID", "\"prod\"")
+        buildConfigField("String", "ENVIRONMENT", "\"prod\"")
     }
 }
 ```
 
 ### Compilar por Ambiente
 
+La database se selecciona automáticamente según el build variant:
+
 ```bash
-# Development (usa database "dev")
+# Development (usa database "test" automáticamente)
 ./gradlew assembleDebug
 
-# Staging (usa database "stage")
+# Staging (usa database "stage" automáticamente)
 ./gradlew assembleStaging
 
-# Production (usa database "(default)")
+# Production (usa database "prod" automáticamente)
 ./gradlew assembleRelease
 ```
+
+No es necesario configurar nada manualmente - BuildConfig se genera en compile-time con los valores correctos para cada variant.
 
 ---
 
@@ -450,7 +485,7 @@ Cada database tiene sus propias reglas:
 1. **Completar Migración:**
    - ✅ Todos los repositorios migrados a FirestoreProvider
    - ✅ FirestoreConfig configurado con databases reales
-   - ⏳ Integrar con BuildConfig para selección automática de ambiente
+   - ✅ Integrado con BuildConfig para selección automática de ambiente
 
 2. **Databases en Firebase:**
    - ✅ Database "test" creada
@@ -469,8 +504,8 @@ Cada database tiene sus propias reglas:
    - ⏳ Procedimientos de deployment por ambiente
 
 5. **Testing:**
-   - ⏳ Configurar FirestoreConfig para cambiar según build variant
-   - ⏳ Verificar que cada build usa la database correcta
+   - ✅ FirestoreConfig configurado para cambiar según build variant
+   - ✅ Verificado que cada build usa la database correcta (debug→test, staging→stage, release→prod)
    - ⏳ Pruebas de integración con cada ambiente
 
 ---
