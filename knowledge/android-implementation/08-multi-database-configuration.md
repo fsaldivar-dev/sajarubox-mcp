@@ -234,22 +234,20 @@ Para cada repositorio:
 
 ### Migrados (✅)
 
-1. ✅ **BookingRepository** - Primera migración de ejemplo
-
-### Pendientes (⏳)
-
-2. ⏳ **ClassRepository**
-3. ⏳ **MemberRepository**
-4. ⏳ **MembershipRepository**
-5. ⏳ **MembershipPlanRepository**
-6. ⏳ **ProductRepository**
-7. ⏳ **UserRepository**
-8. ⏳ **AttendanceRepository**
-9. ⏳ **FirestoreRepository** (base class)
+1. ✅ **AttendanceRepository** - v1.2.0
+2. ✅ **BookingRepository** - v1.2.0 (Primera migración de ejemplo)
+3. ✅ **ClassRepository** - v1.2.0
+4. ✅ **FirestoreRepository** - v1.2.0 (base class)
+5. ✅ **MemberRepository** - v1.2.0
+6. ✅ **MembershipPlanRepository** - v1.2.0
+7. ✅ **MembershipRepository** - v1.2.0
+8. ✅ **ProductRepository** - v1.2.0
+9. ✅ **UserRepository** - v1.2.0
+10. ✅ **AuthRepository** - v1.2.4 (CRITICAL - usaba getInstance() en lugar de FirestoreProvider)
 
 ### No Requieren Cambios (➖)
 
-- **AuthRepository** - No usa Firestore directamente, usa FirebaseAuth
+Ninguno - todos los repositorios que usan Firestore han sido migrados.
 
 ---
 
@@ -510,8 +508,50 @@ Cada database tiene sus propias reglas:
 
 ---
 
-## Versión
+## Historial de Versiones
 
-**Release:** v1.2.0 (pendiente)
-**Fecha:** 2026-02-25
-**Estado:** 🚧 En desarrollo
+### v1.2.4 (2026-02-27) - CRITICAL FIX: AuthRepository
+
+**Bug crítico detectado:**
+- `AuthRepository` usaba `FirebaseFirestore.getInstance()` en lugar de `FirestoreProvider.instance`
+- `getInstance()` SIEMPRE se conecta a database `(default)`, ignorando `FirestoreConfig`
+- Todas las operaciones de auth se ejecutaban en la database incorrecta
+
+**Síntomas:**
+- `findMemberByEmail()` retornaba null (buscaba en `(default)` en lugar de `test`)
+- Auto-vinculación user ↔ member NO funcionaba
+- `onboardingCompleted` se leía/escribía en database incorrecta
+- Usuarios creados en database incorrecta
+
+**Solución:**
+- Migrado `AuthRepository` a usar `FirestoreProvider.instance`
+- Ahora todas las operaciones de auth usan la database correcta según build variant
+
+**Impacto:**
+- ✅ Auto-vinculación funciona correctamente
+- ✅ Members se encuentran en la database correcta
+- ✅ Onboarding se lee/escribe en la database correcta
+- ✅ Todos los repositorios ahora usan FirestoreProvider
+
+### v1.2.1 (2026-02-27) - Integración BuildConfig
+
+**Mejora:**
+- Integrado `FirestoreConfig` con `BuildConfig`
+- Selección automática de database según build variant
+- Eliminada configuración manual hardcoded
+
+### v1.2.0 (2026-02-25) - Release Inicial
+
+**Primera implementación:**
+- Sistema de configuración multi-database
+- `FirestoreConfig` y `FirestoreProvider`
+- Migración de 9 repositorios (faltó `AuthRepository` - corregido en v1.2.4)
+- Databases configuradas: `test`, `stage`, `prod`, `(default)`
+
+---
+
+## Versión Actual
+
+**Release:** v1.2.4
+**Fecha:** 2026-02-27
+**Estado:** ✅ Producción
