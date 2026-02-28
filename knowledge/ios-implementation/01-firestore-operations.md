@@ -19,6 +19,25 @@
 
 ---
 
+## Seleccion de datasource por ambiente (esquema iOS)
+
+La seleccion de Firestore DB y Storage bucket se resuelve al arranque segun `SWIFT_ACTIVE_COMPILATION_CONDITIONS` del esquema:
+
+- `TEST` -> Firestore `test`, Storage `sajarubox_test`
+- `STAGE` -> Firestore `stage`, Storage `sajarubox_stage`
+- `RELEASE` -> Firestore `prod`, Storage `sajarubox_prod`
+
+Referencia tecnica:
+- `SajaruBox/SajaruAppDelegate.swift` (`configureFirebaseDataSources`)
+- `FirebaseDataSourceEnvironment.configure(...)`
+
+Diagnostico rapido:
+- Verificar el log de arranque:
+  - `Firebase compileConfiguration=... appEnvironment=... firestoreDatabase=... storageBucket=...`
+- Si el esquema es correcto pero el log no coincide, revisar `SWIFT_ACTIVE_COMPILATION_CONDITIONS` en `project.pbxproj` y `buildConfiguration` del `.xcscheme`.
+
+---
+
 ## Patron de repositorio
 
 Todos los repositorios son `actor` que reciben `Firestore` en el init:
