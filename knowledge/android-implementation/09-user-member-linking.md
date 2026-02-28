@@ -480,8 +480,49 @@ Usuarios vinculados automáticamente siempre tienen `role = "member"`. No pueden
 
 ---
 
-## Versión
+## Historial de Versiones
 
-**Release:** v1.2.2
+### v1.2.3 (2026-02-27) - Fix: Vinculación retroactiva
+
+**Problema detectado en v1.2.2:**
+- Solo vinculaba usuarios NUEVOS al registrarse
+- Usuarios existentes que se loguearon antes del fix (como `eve@test.com`) quedaron sin vincular
+- `autoRegisterUser()` detectaba que el user existe y salía sin verificar member
+
+**Solución:**
+- Modificado bloque de "usuario existente" en `autoRegisterUser()`
+- Ahora verifica si el user tiene `linkedMemberId`
+- Si NO lo tiene: busca member por email y vincula automáticamente
+- Si ya lo tiene: solo actualiza email/nombre (sin cambios)
+
+**Beneficios:**
+- ✅ Fix retroactivo para todos los usuarios creados desde admin antes de v1.2.2
+- ✅ Solo requiere que el usuario se loguee de nuevo
+- ✅ No afecta usuarios ya vinculados correctamente
+
+**Casos cubiertos:**
+1. User nuevo + member existe → vincula (desde v1.2.2)
+2. User nuevo + member NO existe → onboarding (desde v1.2.2)
+3. User existente + ya vinculado → actualiza email (desde v1.2.3) ✨ NUEVO
+4. User existente + NO vinculado + member existe → vincula (desde v1.2.3) ✨ NUEVO
+5. User existente + NO vinculado + member NO existe → actualiza email (desde v1.2.3) ✨ NUEVO
+
+### v1.2.2 (2026-02-27) - Release inicial
+
+**Primera implementación:**
+- Sistema de auto-vinculación user ↔ member
+- Función `findMemberByEmail()` para buscar members por email
+- Vinculación automática al crear usuarios NUEVOS
+- Skip onboarding para usuarios con member existente
+
+**Limitación:**
+- Solo funcionaba para usuarios nuevos
+- Usuarios existentes sin vincular no se reparaban
+
+---
+
+## Versión Actual
+
+**Release:** v1.2.3
 **Fecha:** 2026-02-27
 **Estado:** ✅ Producción
