@@ -42,6 +42,18 @@ const RESOURCES = [
     file: "knowledge/platforms.md",
   },
   {
+    uri: "sajarubox://data-sources",
+    name: "Data Sources Spec",
+    description: "Especificacion cross-platform de fuentes de datos consultables",
+    file: "knowledge/data-sources.md",
+  },
+  {
+    uri: "sajarubox://storage-buckets",
+    name: "Storage Buckets Spec",
+    description: "Inventario y mapeo de buckets de Firebase Storage por ambiente",
+    file: "knowledge/storage-buckets.md",
+  },
+  {
     uri: "sajarubox://sprint",
     name: "Current Sprint",
     description: "Sprint actual y backlog de features",
@@ -161,6 +173,68 @@ const RESOURCES = [
     description: "Registro de gastos del gimnasio, categorias, gastos recurrentes, integracion con reportes",
     file: "knowledge/business-rules/13-expenses.md",
   },
+  {
+    uri: "sajarubox://business/gym-config",
+    name: "Reglas: Configuracion del gimnasio",
+    description: "Datos generales del gym, horarios, contacto, precio pase de dia, redes sociales",
+    file: "knowledge/business-rules/14-gym-config.md",
+  },
+  {
+    uri: "sajarubox://business/notifications",
+    name: "Reglas: Notificaciones locales",
+    description: "Notificaciones de membresias por vencer, gastos recurrentes, stock bajo",
+    file: "knowledge/business-rules/15-notifications.md",
+  },
+  {
+    uri: "sajarubox://business/backend-platform",
+    name: "Reglas: Plataforma backend oficial",
+    description: "Arquitectura oficial backend con Hostinger, MySQL y limites de responsabilidad",
+    file: "knowledge/business-rules/16-backend-platform.md",
+  },
+  {
+    uri: "sajarubox://business/data-ownership",
+    name: "Reglas: Ownership de datos y costos",
+    description: "Fuente de verdad, auditoria, topes de consumo y control operativo",
+    file: "knowledge/business-rules/17-data-ownership-and-billing.md",
+  },
+  {
+    uri: "sajarubox://business/auth-firebase-bridge",
+    name: "Reglas: Bridge de autenticacion Firebase",
+    description: "Flujo de token Firebase hacia backend API y autorizacion por rol",
+    file: "knowledge/business-rules/18-authentication-firebase-bridge.md",
+  },
+
+  // Implementacion backend (para devs)
+  {
+    uri: "sajarubox://backend-impl/hostinger",
+    name: "Backend Impl: Setup Hostinger Node.js",
+    description: "Despliegue de API en Hostinger con subdominio, env vars y seguridad base",
+    file: "knowledge/backend-implementation/01-hostinger-nodejs-setup.md",
+  },
+  {
+    uri: "sajarubox://backend-impl/rest-contracts",
+    name: "Backend Impl: Contratos REST",
+    description: "Convenciones API v1, estructura de errores y endpoints base",
+    file: "knowledge/backend-implementation/02-rest-api-contracts.md",
+  },
+  {
+    uri: "sajarubox://backend-impl/migration",
+    name: "Backend Impl: Migracion Firebase a MySQL",
+    description: "Fases de migracion, mapeo de entidades y estrategia de cutover",
+    file: "knowledge/backend-implementation/03-data-migration-firebase-to-mysql.md",
+  },
+  {
+    uri: "sajarubox://backend-impl/observability",
+    name: "Backend Impl: Observabilidad y costos",
+    description: "Metricas, alertas, rate limits y runbook de contingencia",
+    file: "knowledge/backend-implementation/04-observability-and-cost-control.md",
+  },
+  {
+    uri: "sajarubox://web-impl/api-integration",
+    name: "Web Impl: Integracion landing con API",
+    description: "Integracion frontend en sajarubox.com consumiendo api.sajarubox.com",
+    file: "knowledge/web-implementation/02-landing-to-api-integration.md",
+  },
 
   // Implementacion iOS (para devs)
   {
@@ -192,6 +266,24 @@ const RESOURCES = [
     name: "iOS Impl: Guia de theming",
     description: "Property wrappers, styles, crear temas nuevos",
     file: "knowledge/ios-implementation/05-theming-guide.md",
+  },
+  {
+    uri: "sajarubox://ios-impl/member-module",
+    name: "iOS Impl: Modulo de miembros",
+    description: "Flujo de miembros, formularios, asignacion y actualizacion de membresia",
+    file: "knowledge/ios-implementation/06-member-module.md",
+  },
+  {
+    uri: "sajarubox://ios-impl/checkin",
+    name: "iOS Impl: Modulo de check-in",
+    description: "Registro de acceso, descuento de visitas y reglas operativas de check-in",
+    file: "knowledge/ios-implementation/07-checkin-module.md",
+  },
+  {
+    uri: "sajarubox://ios-impl/payments",
+    name: "iOS Impl: Modulo de pagos",
+    description: "Registro de cobros y flujo de pagos de membresia/productos",
+    file: "knowledge/ios-implementation/08-payment-module.md",
   },
   {
     uri: "sajarubox://ios-impl/classes",
@@ -259,6 +351,8 @@ const TOPIC_MAP: Record<string, string | string[]> = {
   roles: "knowledge/roles.md",
   rules: "knowledge/business-rules.md",
   platforms: "knowledge/platforms.md",
+  "data-sources": "knowledge/data-sources.md",
+  "storage-buckets": "knowledge/storage-buckets.md",
   sprint: "sprints/sprint-01.md",
   // Reglas de negocio
   authentication: "knowledge/business-rules/01-authentication.md",
@@ -274,6 +368,17 @@ const TOPIC_MAP: Record<string, string | string[]> = {
   reports: "knowledge/business-rules/11-reports.md",
   routines: "knowledge/business-rules/12-routines.md",
   expenses: "knowledge/business-rules/13-expenses.md",
+  "gym-config": "knowledge/business-rules/14-gym-config.md",
+  notifications: "knowledge/business-rules/15-notifications.md",
+  "backend-platform": "knowledge/business-rules/16-backend-platform.md",
+  "data-ownership": "knowledge/business-rules/17-data-ownership-and-billing.md",
+  "auth-firebase-bridge": "knowledge/business-rules/18-authentication-firebase-bridge.md",
+  // backend implementacion y web integracion
+  "backend-hostinger": "knowledge/backend-implementation/01-hostinger-nodejs-setup.md",
+  "backend-rest-contracts": "knowledge/backend-implementation/02-rest-api-contracts.md",
+  "backend-migration": "knowledge/backend-implementation/03-data-migration-firebase-to-mysql.md",
+  "backend-observability": "knowledge/backend-implementation/04-observability-and-cost-control.md",
+  "web-api-integration": "knowledge/web-implementation/02-landing-to-api-integration.md",
   // iOS arquitectura
   "ios-structure": "knowledge/ios-architecture/01-project-structure.md",
   "ios-mvvm": "knowledge/ios-architecture/02-mvvm-pattern.md",
@@ -287,6 +392,9 @@ const TOPIC_MAP: Record<string, string | string[]> = {
   "ios-session": "knowledge/ios-implementation/03-session-resolver.md",
   "ios-new-module": "knowledge/ios-implementation/04-creating-new-module.md",
   "ios-theming": "knowledge/ios-implementation/05-theming-guide.md",
+  "ios-member": "knowledge/ios-implementation/06-member-module.md",
+  "ios-checkin": "knowledge/ios-implementation/07-checkin-module.md",
+  "ios-payments": "knowledge/ios-implementation/08-payment-module.md",
   "ios-inventory": "knowledge/ios-implementation/09-inventory-module.md",
   "ios-classes": "knowledge/ios-implementation/10-classes-module.md",
   "ios-reports": "knowledge/ios-implementation/11-reports-module.md",
@@ -305,6 +413,18 @@ const TOPIC_MAP: Record<string, string | string[]> = {
     "knowledge/business-rules/11-reports.md",
     "knowledge/business-rules/12-routines.md",
     "knowledge/business-rules/13-expenses.md",
+    "knowledge/business-rules/14-gym-config.md",
+    "knowledge/business-rules/15-notifications.md",
+    "knowledge/business-rules/16-backend-platform.md",
+    "knowledge/business-rules/17-data-ownership-and-billing.md",
+    "knowledge/business-rules/18-authentication-firebase-bridge.md",
+  ],
+  "all-backend-impl": [
+    "knowledge/backend-implementation/01-hostinger-nodejs-setup.md",
+    "knowledge/backend-implementation/02-rest-api-contracts.md",
+    "knowledge/backend-implementation/03-data-migration-firebase-to-mysql.md",
+    "knowledge/backend-implementation/04-observability-and-cost-control.md",
+    "knowledge/web-implementation/02-landing-to-api-integration.md",
   ],
   "all-ios-arch": [
     "knowledge/ios-architecture/01-project-structure.md",
@@ -320,6 +440,9 @@ const TOPIC_MAP: Record<string, string | string[]> = {
     "knowledge/ios-implementation/03-session-resolver.md",
     "knowledge/ios-implementation/04-creating-new-module.md",
     "knowledge/ios-implementation/05-theming-guide.md",
+    "knowledge/ios-implementation/06-member-module.md",
+    "knowledge/ios-implementation/07-checkin-module.md",
+    "knowledge/ios-implementation/08-payment-module.md",
     "knowledge/ios-implementation/09-inventory-module.md",
     "knowledge/ios-implementation/10-classes-module.md",
     "knowledge/ios-implementation/11-reports-module.md",
@@ -329,7 +452,7 @@ const TOPIC_MAP: Record<string, string | string[]> = {
 // ── Servidor MCP ──────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: "sajarubox-mcp", version: "1.18.0" },
+  { name: "sajarubox-mcp", version: "1.23.0" },
   { capabilities: { resources: {}, tools: {} } }
 );
 
@@ -360,7 +483,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "get_context",
       description:
-        "Obtiene documentacion de SajaruBox por tema. Topics disponibles: schema, roles, rules, platforms, sprint, authentication, user-roles, memberships, members, admin-setup, membership-plans, membership-assignments, payments, inventory, classes, reports, routines, expenses, ios-structure, ios-mvvm, ios-di, ios-navigation, ios-design-system, ios-sync, ios-firestore, ios-auth, ios-session, ios-new-module, ios-theming, ios-inventory, ios-classes, ios-reports, all-business, all-ios-arch, all-ios-impl",
+        "Obtiene documentacion de SajaruBox por tema. Topics disponibles: schema, roles, rules, platforms, data-sources, storage-buckets, sprint, authentication, user-roles, memberships, members, admin-setup, membership-plans, membership-assignments, payments, inventory, classes, reports, routines, expenses, gym-config, notifications, backend-platform, data-ownership, auth-firebase-bridge, backend-hostinger, backend-rest-contracts, backend-migration, backend-observability, web-api-integration, ios-structure, ios-mvvm, ios-di, ios-navigation, ios-design-system, ios-sync, ios-firestore, ios-auth, ios-session, ios-new-module, ios-theming, ios-member, ios-checkin, ios-payments, ios-inventory, ios-classes, ios-reports, all-business, all-backend-impl, all-ios-arch, all-ios-impl",
       inputSchema: {
         type: "object",
         properties: {
