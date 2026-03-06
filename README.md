@@ -1,6 +1,6 @@
 # SajaruBox MCP
 
-Servidor MCP (**Model Context Protocol**) que expone el contexto compartido de SajaruBox a Claude Code. Actúa como fuente de verdad para reglas de negocio, schema de Firestore, roles, plataformas y sprints — disponible en cualquier sesión de Claude sin tener que pegarlo manualmente.
+Servidor MCP (**Model Context Protocol**) que expone el contexto compartido de SajaruBox a Claude Code. Actúa como fuente de verdad para reglas de negocio, arquitectura backend, autenticación, esquema de datos, roles, plataformas y sprints — disponible en cualquier sesión de Claude sin tener que pegarlo manualmente.
 
 ---
 
@@ -13,6 +13,9 @@ Expone herramientas que Claude puede invocar para consultar:
 | `get_context(schema)` | Schema de Firestore (colecciones, campos, tipos) |
 | `get_context(data-sources)` | Especificación cross-platform de fuentes de datos consultables |
 | `get_context(storage-buckets)` | Inventario de buckets Storage y mapeo por ambiente |
+| `get_context(backend-platform)` | Decisión oficial: backend Hostinger + MySQL |
+| `get_context(auth-firebase-bridge)` | Bridge de autenticación Firebase Auth -> Backend API |
+| `get_context(all-backend-impl)` | Bundle técnico completo de backend/migración/observabilidad |
 | `get_context(rules)` | Reglas de negocio cross-platform |
 | `get_context(roles)` | Roles de usuario y permisos por colección |
 | `get_context(platforms)` | Descripción de cada plataforma y su stack |
@@ -33,7 +36,10 @@ sajarubox-mcp/
 │   ├── platforms.md       # Plataformas (Android, iOS, Web)
 │   ├── data-sources.md    # Fuentes de datos (Firestore/Auth/Storage/CLI)
 │   ├── storage-buckets.md # Buckets de Firebase Storage por ambiente
-│   └── business-rules.md  # Reglas de negocio
+│   ├── business-rules/    # Reglas de negocio por dominio
+│   ├── backend-implementation/ # Setup Hostinger, contratos REST, migración, observabilidad
+│   ├── web-implementation/ # Implementación web (landing e integración API)
+│   └── business-rules.md  # Reglas legacy
 ├── sprints/
 │   └── sprint-01.md       # Sprints del proyecto
 ├── src/
@@ -81,7 +87,30 @@ El script:
 
 Verificacion recomendada despues del refresh:
 1. Ejecutar `list_topics` y confirmar que aparecen los topics nuevos/actualizados
-2. Ejecutar `get_context` en los topics cambiados (por ejemplo `user-roles`, `admin-setup`, `membership-assignments`, `classes`)
+2. Ejecutar `get_context` en los topics cambiados (por ejemplo `backend-platform`, `auth-firebase-bridge`, `all-backend-impl`)
+
+---
+
+## Backend oficial (Hostinger + MySQL + Firebase Auth)
+
+Arquitectura oficial documentada en MCP:
+
+- Backend API REST en Hostinger (`api.sajarubox.com`)
+- MySQL como fuente de verdad operativa
+- Firebase Authentication como proveedor de identidad
+- Firestore/Storage en modo legado o transición para módulos históricos
+
+Topics clave para este flujo:
+
+- `backend-platform`
+- `data-ownership`
+- `auth-firebase-bridge`
+- `backend-hostinger`
+- `backend-rest-contracts`
+- `backend-migration`
+- `backend-observability`
+- `web-api-integration`
+- `all-backend-impl`
 
 ---
 
