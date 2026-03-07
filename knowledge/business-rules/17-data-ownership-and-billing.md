@@ -6,66 +6,88 @@
 
 ## Principios
 
-1. El negocio controla su costo mensual con limites observables.
-2. La fuente de verdad de datos operativos es MySQL.
-3. Toda escritura critica debe ser auditable.
-4. Ninguna plataforma cliente define por si sola la estrategia de persistencia.
+1. El negocio controla el costo mensual con limites observables.
+2. MySQL es la fuente de verdad de datos operativos.
+3. Toda escritura critica debe ser auditable y trazable.
+4. Ninguna plataforma cliente decide por si sola la estrategia de persistencia.
 
 ---
 
 ## Ownership por dominio
 
-| Dominio | Fuente de verdad | Observaciones |
-|--------|-------------------|---------------|
-| users (perfil/rol interno) | MySQL | UID de Firebase se almacena como referencia externa |
-| members | MySQL | Incluye estado de membresia y metadatos operativos |
-| membership_plans | MySQL | Catalogo mutable administrado por backend |
-| membership_assignments | MySQL | Historial y snapshots de asignacion |
-| payments/sales/expenses | MySQL | Datos contables y de reportes |
-| classes/attendance/checkins | MySQL | Registros operativos del gimnasio |
-| credenciales | Firebase Auth | No se replica password en MySQL |
+| Dominio | Fuente de verdad | Replica transitoria | Observaciones |
+|--------|-------------------|---------------------|---------------|
+| users (perfil/rol interno) | MySQL | Opcional a Firestore | `firebaseUid` es referencia externa |
+| members | MySQL | Opcional a Firestore | Incluye estado de membresia |
+| membership_plans | MySQL | No requerida | Catalogo mutable por backend |
+| membership_assignments | MySQL | No requerida | Historial + snapshots |
+| payments/sales/expenses | MySQL | No requerida | Datos contables, inmutables por evento |
+| classes/attendance/checkins | MySQL | Opcional a Firestore | Registros operativos |
+| credenciales | Firebase Auth | No aplica | Nunca replicar passwords |
+
+---
+
+## Reglas de inmutabilidad financiera
+
+1. `payments` y `expenses` no se eliminan fisicamente.
+2. Correcciones se hacen por evento compensatorio (reversal/adjustment).
+3. Cada evento financiero debe guardar `actorId`, `reason`, `timestamp`.
 
 ---
 
 ## Politica de costo y consumo
 
-### Umbrales sugeridos
+### Umbrales
 
-- Presupuesto mensual objetivo definido por administracion.
-- Alertas al 60%, 80% y 95% del consumo mensual.
-- Si se supera 95%, activar plan de contencion (limitar procesos no criticos, reportes pesados por lotes).
+- Alertas al 60%, 80% y 95% del presupuesto mensual.
+- A 95% se activa contencion:
+  - limitar endpoints no criticos,
+  - mover reportes pesados a batch,
+  - pausar jobs opcionales.
 
 ### Medidas obligatorias
 
-1. Rate limiting por IP/usuario para endpoints sensibles.
+1. Rate limit por IP y por usuario para endpoints sensibles.
 2. Paginacion obligatoria en listados.
 3. Indices y consultas optimizadas en MySQL.
-4. Jobs pesados fuera de request/response (colas o cron).
-5. Bitacora de errores y performance por endpoint.
+4. Jobs pesados fuera de request/response.
+5. Metricas de error y latencia por endpoint.
 
 ---
 
 ## Retencion y auditoria
 
-- Soft delete en entidades operativas cuando aplique.
-- Campos minimos de auditoria: `createdAt`, `updatedAt`, `createdBy`, `updatedBy`.
-- Eventos criticos deben registrar actor, accion y timestamp.
+Campos minimos para entidades operativas:
+
+- `createdAt`, `updatedAt`
+- `createdBy`, `updatedBy`
+- `deletedAt` (si aplica soft delete)
+
+Eventos criticos:
+
+- Cambio de rol
+- Cobro y reversa
+- Asignacion/renovacion/cancelacion de membresia
+- Check-in manual override
+
+Cada evento debe registrar `requestId` para trazabilidad cross-system.
 
 ---
 
 ## Reglas de operacion
 
-1. Un cambio de rol siempre deja registro de auditoria.
-2. Un cobro nunca se elimina fisicamente; solo se revierte con evento compensatorio.
-3. Las migraciones de esquema se versionan y prueban antes de produccion.
-4. Se prohibe hardcodear credenciales de base de datos en cliente o repositorio.
+1. Todo cambio de rol deja auditoria obligatoria.
+2. Todo cobro es irreversible por delete; solo compensable.
+3. Migraciones SQL son versionadas y probadas antes de produccion.
+4. Prohibido hardcodear credenciales en clientes o repositorio.
+5. No exponer datos sensibles en logs (`Authorization`, llaves privadas).
 
 ---
 
-## Indicadores minimos de salud
+## Indicadores minimos
 
 - Latencia p95 por endpoint
-- Errores 4xx/5xx por minuto
+- Error rate 4xx/5xx por minuto
 - Conexiones activas a DB
 - Costo mensual acumulado vs presupuesto
 - Throughput diario de check-ins y pagos

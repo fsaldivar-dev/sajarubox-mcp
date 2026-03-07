@@ -1,15 +1,15 @@
 # Bridge de Autenticacion (Firebase Auth + Backend)
 
 > Regla oficial de autenticacion para arquitectura hibrida.
-> Firebase Auth identifica al usuario; el backend autoriza operaciones.
+> Firebase Auth identifica al usuario; backend autoriza operaciones.
 
 ---
 
 ## Decision
 
-- Se mantiene Firebase Authentication para login/registro.
-- El backend valida el ID token de Firebase en cada request protegida.
-- El backend resuelve el usuario interno, rol y permisos desde MySQL.
+- Firebase Authentication permanece para login/registro.
+- Backend valida ID token Firebase en cada request protegida.
+- Backend resuelve usuario interno, rol y permisos desde MySQL.
 
 ---
 
@@ -32,11 +32,24 @@ flowchart TD
 
 ## Contrato de seguridad
 
-1. El cliente envia `Authorization: Bearer <firebase_id_token>`.
-2. El backend valida firma, expiracion, issuer y audience del token.
-3. El backend mapea `firebaseUid` a usuario interno.
-4. Si no existe usuario interno, ejecuta politica de aprovisionamiento (crear o rechazar segun modulo).
-5. El backend decide autorizacion final por rol.
+1. Cliente envia `Authorization: Bearer <firebase_id_token>`.
+2. Backend valida firma, expiracion, `issuer`, `audience`, `sub`.
+3. Backend mapea `firebaseUid` a usuario interno.
+4. Si no existe usuario interno, aplica politica de aprovisionamiento.
+5. Backend decide autorizacion final por rol.
+
+---
+
+## Politica de aprovisionamiento (obligatoria)
+
+| Endpoint/Modulo | Si usuario interno no existe | Resultado |
+|-----------------|------------------------------|-----------|
+| `POST /api/v1/auth/verify-token` | Crear usuario con rol default `member` | `200` |
+| `GET /api/v1/auth/me` | Crear usuario con rol default `member` | `200` |
+| Endpoints administrativos (`members`, `payments`, `membership-*`, `inventory`, `reports`) | No crear automaticamente | `403` o `409` segun conflicto |
+| Endpoints de autoservicio member | Crear solo si politica de onboarding lo permite | `200`/`409` |
+
+Regla: el aprovisionamiento automatico solo aplica en endpoints de identidad/autoservicio controlado.
 
 ---
 
@@ -44,33 +57,45 @@ flowchart TD
 
 | Campo | Origen | Uso |
 |------|--------|-----|
-| firebaseUid | Firebase token (`sub`) | Vinculo primario de identidad |
-| email | Firebase token | Correlacion y contacto |
-| role | MySQL users.role | Autorizacion de negocio |
+| firebaseUid | Token Firebase (`sub`) | Vinculo primario |
+| email | Token Firebase | Correlacion y contacto |
+| role | MySQL `users.role` | Autorizacion de negocio |
 | linkedMemberId | MySQL | Vinculacion user-member |
+
+---
+
+## Orden de middlewares
+
+1. `requestId`
+2. parse y saneo de headers
+3. `authGuard` (verificacion token Firebase)
+4. `userResolver` (mapea `firebaseUid` -> usuario interno)
+5. `rbacGuard`
+6. handler de negocio
 
 ---
 
 ## Reglas de error
 
-- `401 Unauthorized`: token invalido, expirado o ausente.
-- `403 Forbidden`: token valido pero sin permisos de rol.
-- `409 Conflict`: conflicto de identidad/vinculacion.
+- `401 UNAUTHORIZED`: token invalido, expirado o ausente.
+- `403 FORBIDDEN`: token valido sin permisos de rol.
+- `409 CONFLICT`: conflicto de identidad/vinculacion.
 
-Mensajes al cliente deben ser seguros y no revelar informacion sensible.
+Mensajes al cliente deben ser seguros y sin fuga de informacion sensible.
 
 ---
 
 ## Regla de sesiones
 
-- El backend puede operar en modo stateless validando token por request.
-- Si se agrega refresh token propio, debe documentarse como capa adicional, sin reemplazar validacion Firebase.
+- Backend opera stateless validando token por request.
+- Cache de verificacion de llave publica solo en servidor.
+- Si se agrega refresh token propio, no reemplaza validacion Firebase.
 
 ---
 
 ## Reglas de migracion
 
-1. Durante migracion, Firebase Auth sigue siendo unica fuente de credenciales.
-2. No se migran passwords a MySQL.
-3. El cutover de datos no debe romper login existente.
-4. Cualquier cambio en claims/roles debe mantener compatibilidad con apps activas.
+1. Firebase Auth sigue como unica fuente de credenciales.
+2. No migrar ni replicar passwords en MySQL.
+3. Cutover de datos no debe romper login existente.
+4. Cambios en claims/roles deben mantener compatibilidad con apps activas.

@@ -1,27 +1,27 @@
 # Plataforma Backend Oficial
 
 > Regla de arquitectura para todas las plataformas del ecosistema SajaruBox.
-> El backend operativo se mueve a Node.js + MySQL en Hostinger.
+> El backend operativo oficial corre en Node.js + MySQL en Hostinger.
 
 ---
 
 ## Decision oficial
 
-SajaruBox adopta una arquitectura de backend centralizado:
+SajaruBox adopta backend centralizado:
 
-- API REST en Node.js (Hostinger)
+- API REST en Node.js (`api.sajarubox.com`)
 - Base de datos operativa en MySQL
-- Firebase Authentication se mantiene como proveedor de identidad
-- Firestore/Storage quedan en modo legado o transicion
+- Firebase Authentication como proveedor de identidad
+- Firestore/Storage en modo legado transitorio
 
 ---
 
 ## Objetivos de negocio
 
-1. Controlar topes de consumo y costo mensual
-2. Centralizar reglas operativas en un backend propio
+1. Controlar costos y topes de consumo mensual
+2. Centralizar reglas operativas en servidor
 3. Unificar comportamiento entre iOS, Android y Web
-4. Reducir dependencia del vendor para datos de negocio
+4. Reducir lock-in de proveedor de datos operativos
 
 ---
 
@@ -29,10 +29,11 @@ SajaruBox adopta una arquitectura de backend centralizado:
 
 | Capa | Responsabilidad |
 |------|-----------------|
-| Cliente (iOS/Android/Web) | UI, captura de datos, envio de token de auth |
+| Cliente (iOS/Android/Web) | UI, captura de datos, envio de token |
 | Firebase Auth | Registro/login y emision de ID token |
-| Backend Node.js | Reglas de negocio, validaciones, autorizacion por rol, auditoria |
+| Backend Node.js | Validaciones, reglas de negocio, autorizacion, auditoria |
 | MySQL | Fuente de verdad de datos operativos |
+| Firestore (transicion) | Compatibilidad temporal durante migracion |
 
 ---
 
@@ -49,27 +50,33 @@ backendApi --> legacyFirebase[LegacyFirebase_TransitionOnly]
 
 ---
 
-## Regla critica de fuente de verdad
+## Precedencia de documentacion
 
-- Para nuevos modulos y nuevas escrituras operativas, la fuente de verdad es MySQL.
-- Firestore no debe recibir nuevas dependencias funcionales salvo compatibilidad temporal.
-- La app cliente no debe contener reglas de negocio que dependan exclusivamente de Firestore.
+Para evitar ambiguedad entre documentos legacy y nuevos:
 
----
-
-## Regla de API
-
-- Todas las capacidades operativas se exponen via API versionada: `/api/v1/...`
-- Los clientes no consumen tablas ni proveedores directamente.
-- Los contratos API deben ser estables y retrocompatibles por version.
+1. `knowledge/business-rules/16-18` tienen precedencia sobre reglas legacy de persistencia.
+2. `knowledge/backend-implementation/0X-*` define implementacion oficial backend.
+3. Si un documento legacy contradice esta capa backend, se considera desactualizado para nuevas implementaciones.
 
 ---
 
-## Regla de permisos
+## Reglas criticas
 
-- La autorizacion por rol se decide en backend.
-- El cliente puede ocultar opciones por UX, pero la seguridad real vive en API.
-- Cualquier accion sensible (cambio de rol, cobro, edicion de inventario, check-in) valida rol en servidor.
+1. La fuente de verdad de escrituras operativas nuevas es MySQL.
+2. Ningun cliente puede ejecutar reglas de negocio criticas sin pasar por API.
+3. Seguridad real se valida en backend, no en UI.
+4. Cambios sensibles (rol, cobro, asignacion, check-in, inventario) requieren autorizacion por rol en servidor.
+5. Contratos API se versionan (`/api/v1`) y cambios incompatibles van a `v2`.
+
+---
+
+## Estado de transicion permitido
+
+Durante migracion:
+
+- Se permite lectura en Firestore solo para modulos aun no migrados.
+- Se permite replica temporal backend -> Firestore para compatibilidad de apps legacy.
+- No se permite nueva logica de negocio exclusiva en Firestore.
 
 ---
 
@@ -77,6 +84,7 @@ backendApi --> legacyFirebase[LegacyFirebase_TransitionOnly]
 
 Se considera cumplida la regla cuando:
 
-1. Existe API backend operativa para auth bridge + dominio principal.
-2. MySQL almacena los datos de negocio activos.
-3. La documentacion MCP refleja la nueva arquitectura como oficial.
+1. Existe API backend operativa para auth bridge y dominios core.
+2. MySQL almacena todas las escrituras operativas activas.
+3. Clientes consumen API para operaciones de negocio.
+4. Firestore queda como legado o read-model temporal documentado.

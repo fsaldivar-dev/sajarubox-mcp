@@ -15,7 +15,7 @@
 ## Requisitos
 
 1. Subdominio `api.sajarubox.com` creado en hPanel
-2. Proyecto Node.js en repositorio Git (recomendado repo separado: `sajarubox-api`)
+2. Proyecto Node.js en repositorio Git (repo API pendiente de crear)
 3. Base de datos MySQL y usuario dedicados
 
 ---

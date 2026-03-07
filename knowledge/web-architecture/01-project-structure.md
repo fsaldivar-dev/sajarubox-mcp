@@ -2,7 +2,7 @@
 
 > Landing page de Sajaru Box.
 > Stack: React 19 + Vite. Sin Firebase por ahora (sitio estatico).
-> Repo: fsaldivar-dev/sajaru-box-web | Branch principal: develop
+> Repo: sajarubox/sajarubox-landing-web | Branch principal: develop
 
 ---
 
@@ -23,7 +23,7 @@ Estilos 100% CSS custom con variables.
 ## Estructura de archivos
 
 ```
-sajaru-box-web/
+sajarubox-landing-web/
 ├── public/
 │   ├── hero-video.mp4          # Video de fondo del Hero (autoplay)
 │   └── Light_Wolf.png          # Icono alternativo

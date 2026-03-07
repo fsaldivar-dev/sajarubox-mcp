@@ -73,7 +73,7 @@
 
 ## Web — Landing + Autoservicio
 
-**Repo:** `fsaldivar-dev/sajaru-box-web`
+**Repo:** `sajarubox/sajarubox-landing-web`
 **Branch principal:** `develop`
 **Hosting:** Firebase Hosting (estatico)
 **Stack:** React 19.2.0 + Vite 7.2.4 | CSS custom con variables | Sin libreria UI externa

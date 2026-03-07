@@ -230,6 +230,48 @@ const RESOURCES = [
     file: "knowledge/backend-implementation/04-observability-and-cost-control.md",
   },
   {
+    uri: "sajarubox://backend-impl/architecture",
+    name: "Backend Arch: Estructura y modulos",
+    description: "Estructura canonica del backend, capas y dependencias",
+    file: "knowledge/backend-architecture/01-project-structure.md",
+  },
+  {
+    uri: "sajarubox://backend-arch/security-rbac",
+    name: "Backend Arch: Seguridad y RBAC",
+    description: "Modelo de autenticacion/autorizacion y reglas de seguridad",
+    file: "knowledge/backend-architecture/02-security-and-rbac.md",
+  },
+  {
+    uri: "sajarubox://backend-arch/data-transactions",
+    name: "Backend Arch: Datos y transacciones",
+    description: "Fuente de verdad, transacciones atomicas e idempotencia",
+    file: "knowledge/backend-architecture/03-data-and-transactions.md",
+  },
+  {
+    uri: "sajarubox://backend-impl/implementation-spec",
+    name: "Backend Impl: Especificacion de implementacion",
+    description: "Guia ejecutable para implementar arquitectura backend con fases y DoD",
+    file: "knowledge/backend-implementation/06-architecture-implementation-spec.md",
+  },
+  {
+    uri: "sajarubox://backend-impl/auth-module",
+    name: "Backend Impl: Modulo Auth y Sesion",
+    description: "Flujos, reglas y checklist del modulo de autenticacion backend",
+    file: "knowledge/backend-implementation/07-auth-module.md",
+  },
+  {
+    uri: "sajarubox://backend-impl/members-module",
+    name: "Backend Impl: Modulo Members",
+    description: "Flujos, validaciones y checklist del CRUD de miembros por API",
+    file: "knowledge/backend-implementation/08-members-module.md",
+  },
+  {
+    uri: "sajarubox://backend-impl/membership-payments-checkins",
+    name: "Backend Impl: Modulo Membresias/Pagos/Check-ins",
+    description: "Operacion transaccional critica con idempotencia y concurrencia",
+    file: "knowledge/backend-implementation/09-membership-payments-checkins-module.md",
+  },
+  {
     uri: "sajarubox://web-impl/api-integration",
     name: "Web Impl: Integracion landing con API",
     description: "Integracion frontend en sajarubox.com consumiendo api.sajarubox.com",
@@ -378,6 +420,19 @@ const TOPIC_MAP: Record<string, string | string[]> = {
   "backend-rest-contracts": "knowledge/backend-implementation/02-rest-api-contracts.md",
   "backend-migration": "knowledge/backend-implementation/03-data-migration-firebase-to-mysql.md",
   "backend-observability": "knowledge/backend-implementation/04-observability-and-cost-control.md",
+  "backend-architecture": [
+    "knowledge/backend-architecture/01-project-structure.md",
+    "knowledge/backend-architecture/02-security-and-rbac.md",
+    "knowledge/backend-architecture/03-data-and-transactions.md",
+  ],
+  "backend-structure": "knowledge/backend-architecture/01-project-structure.md",
+  "backend-security-rbac": "knowledge/backend-architecture/02-security-and-rbac.md",
+  "backend-data-transactions": "knowledge/backend-architecture/03-data-and-transactions.md",
+  "backend-implementation-spec": "knowledge/backend-implementation/06-architecture-implementation-spec.md",
+  "backend-auth-module": "knowledge/backend-implementation/07-auth-module.md",
+  "backend-members-module": "knowledge/backend-implementation/08-members-module.md",
+  "backend-membership-payments-checkins":
+    "knowledge/backend-implementation/09-membership-payments-checkins-module.md",
   "web-api-integration": "knowledge/web-implementation/02-landing-to-api-integration.md",
   // iOS arquitectura
   "ios-structure": "knowledge/ios-architecture/01-project-structure.md",
@@ -419,11 +474,20 @@ const TOPIC_MAP: Record<string, string | string[]> = {
     "knowledge/business-rules/17-data-ownership-and-billing.md",
     "knowledge/business-rules/18-authentication-firebase-bridge.md",
   ],
+  "all-backend-arch": [
+    "knowledge/backend-architecture/01-project-structure.md",
+    "knowledge/backend-architecture/02-security-and-rbac.md",
+    "knowledge/backend-architecture/03-data-and-transactions.md",
+  ],
   "all-backend-impl": [
     "knowledge/backend-implementation/01-hostinger-nodejs-setup.md",
     "knowledge/backend-implementation/02-rest-api-contracts.md",
     "knowledge/backend-implementation/03-data-migration-firebase-to-mysql.md",
     "knowledge/backend-implementation/04-observability-and-cost-control.md",
+    "knowledge/backend-implementation/06-architecture-implementation-spec.md",
+    "knowledge/backend-implementation/07-auth-module.md",
+    "knowledge/backend-implementation/08-members-module.md",
+    "knowledge/backend-implementation/09-membership-payments-checkins-module.md",
     "knowledge/web-implementation/02-landing-to-api-integration.md",
   ],
   "all-ios-arch": [
@@ -452,7 +516,7 @@ const TOPIC_MAP: Record<string, string | string[]> = {
 // ── Servidor MCP ──────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: "sajarubox-mcp", version: "1.23.0" },
+  { name: "sajarubox-mcp", version: "1.25.1" },
   { capabilities: { resources: {}, tools: {} } }
 );
 
@@ -483,7 +547,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "get_context",
       description:
-        "Obtiene documentacion de SajaruBox por tema. Topics disponibles: schema, roles, rules, platforms, data-sources, storage-buckets, sprint, authentication, user-roles, memberships, members, admin-setup, membership-plans, membership-assignments, payments, inventory, classes, reports, routines, expenses, gym-config, notifications, backend-platform, data-ownership, auth-firebase-bridge, backend-hostinger, backend-rest-contracts, backend-migration, backend-observability, web-api-integration, ios-structure, ios-mvvm, ios-di, ios-navigation, ios-design-system, ios-sync, ios-firestore, ios-auth, ios-session, ios-new-module, ios-theming, ios-member, ios-checkin, ios-payments, ios-inventory, ios-classes, ios-reports, all-business, all-backend-impl, all-ios-arch, all-ios-impl",
+        "Obtiene documentacion de SajaruBox por tema. Topics disponibles: schema, roles, rules, platforms, data-sources, storage-buckets, sprint, authentication, user-roles, memberships, members, admin-setup, membership-plans, membership-assignments, payments, inventory, classes, reports, routines, expenses, gym-config, notifications, backend-platform, data-ownership, auth-firebase-bridge, backend-hostinger, backend-rest-contracts, backend-migration, backend-observability, backend-architecture, backend-structure, backend-security-rbac, backend-data-transactions, backend-implementation-spec, backend-auth-module, backend-members-module, backend-membership-payments-checkins, web-api-integration, ios-structure, ios-mvvm, ios-di, ios-navigation, ios-design-system, ios-sync, ios-firestore, ios-auth, ios-session, ios-new-module, ios-theming, ios-member, ios-checkin, ios-payments, ios-inventory, ios-classes, ios-reports, all-business, all-backend-arch, all-backend-impl, all-ios-arch, all-ios-impl",
       inputSchema: {
         type: "object",
         properties: {
