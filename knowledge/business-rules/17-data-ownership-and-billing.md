@@ -6,88 +6,72 @@
 
 ## Principios
 
-1. El negocio controla el costo mensual con limites observables.
-2. MySQL es la fuente de verdad de datos operativos.
-3. Toda escritura critica debe ser auditable y trazable.
-4. Ninguna plataforma cliente decide por si sola la estrategia de persistencia.
+1. Firestore es la fuente de verdad de todos los datos operativos.
+2. Toda escritura crítica debe ser auditable y trazable.
+3. Ninguna plataforma cliente decide por sí sola la estrategia de persistencia.
+4. El negocio controla el costo mensual con límites observables (billing alerts en Firebase).
 
 ---
 
 ## Ownership por dominio
 
-| Dominio | Fuente de verdad | Replica transitoria | Observaciones |
-|--------|-------------------|---------------------|---------------|
-| users (perfil/rol interno) | MySQL | Opcional a Firestore | `firebaseUid` es referencia externa |
-| members | MySQL | Opcional a Firestore | Incluye estado de membresia |
-| membership_plans | MySQL | No requerida | Catalogo mutable por backend |
-| membership_assignments | MySQL | No requerida | Historial + snapshots |
-| payments/sales/expenses | MySQL | No requerida | Datos contables, inmutables por evento |
-| classes/attendance/checkins | MySQL | Opcional a Firestore | Registros operativos |
-| credenciales | Firebase Auth | No aplica | Nunca replicar passwords |
+| Dominio | Fuente de verdad | Observaciones |
+|--------|-------------------|---------------|
+| `users` | Firestore | `firebaseUid` es el document ID |
+| `members` | Firestore | Incluye snapshot de membresía |
+| `membership_plans` | Firestore | Catálogo mutable por admin |
+| `membership_assignments` | Firestore (en `members`) | Snapshot inmutable embebido |
+| `payments` / `expenses` | Firestore | Datos contables, soft delete |
+| `classes` / `classAttendance` / `check_ins` | Firestore | Registros operativos |
+| `products` | Firestore | Inventario y catálogo |
+| `exercises` / `routine_templates` / `daily_routines` | Firestore | Módulo de rutinas |
+| credenciales | Firebase Auth | Nunca replicar passwords |
+| archivos binarios | Firebase Storage | Imágenes, documentos |
 
 ---
 
 ## Reglas de inmutabilidad financiera
 
-1. `payments` y `expenses` no se eliminan fisicamente.
-2. Correcciones se hacen por evento compensatorio (reversal/adjustment).
-3. Cada evento financiero debe guardar `actorId`, `reason`, `timestamp`.
+1. `payments` y `expenses` no se eliminan físicamente.
+2. Correcciones se hacen por soft delete (`isActive = false`) o documento compensatorio.
+3. Cada evento financiero debe guardar `registeredBy`, `createdAt`, `updatedAt`.
 
 ---
 
-## Politica de costo y consumo
+## Control de costos Firebase
 
-### Umbrales
+### Umbrales (billing alerts configurados en GCP)
 
-- Alertas al 60%, 80% y 95% del presupuesto mensual.
-- A 95% se activa contencion:
-  - limitar endpoints no criticos,
-  - mover reportes pesados a batch,
-  - pausar jobs opcionales.
+- Alerta al 60%, 80% y 95% del presupuesto mensual en MXN.
+- A 95% se activa el kill switch via Cloud Function.
 
 ### Medidas obligatorias
 
-1. Rate limit por IP y por usuario para endpoints sensibles.
-2. Paginacion obligatoria en listados.
-3. Indices y consultas optimizadas en MySQL.
-4. Jobs pesados fuera de request/response.
-5. Metricas de error y latencia por endpoint.
+1. Paginación en listados grandes (no descargar colecciones completas innecesariamente).
+2. Búsqueda local sobre datos ya descargados (Firestore no soporta full-text).
+3. Índices compuestos definidos antes de queries complejas.
+4. Listeners en tiempo real solo cuando sea estrictamente necesario.
 
 ---
 
-## Retencion y auditoria
+## Retención y auditoría
 
-Campos minimos para entidades operativas:
+Campos mínimos para entidades operativas:
 
 - `createdAt`, `updatedAt`
-- `createdBy`, `updatedBy`
-- `deletedAt` (si aplica soft delete)
+- `registeredBy` o `createdBy` (UID del actor)
+- `isActive` (soft delete)
 
-Eventos criticos:
+Eventos críticos que deben ser trazables:
 
-- Cambio de rol
-- Cobro y reversa
-- Asignacion/renovacion/cancelacion de membresia
-- Check-in manual override
-
-Cada evento debe registrar `requestId` para trazabilidad cross-system.
+- Cambio de rol de usuario
+- Asignación/renovación/cancelación de membresía
+- Registro de cobro
+- Check-in manual
 
 ---
 
-## Reglas de operacion
+## Migración futura (opcional)
 
-1. Todo cambio de rol deja auditoria obligatoria.
-2. Todo cobro es irreversible por delete; solo compensable.
-3. Migraciones SQL son versionadas y probadas antes de produccion.
-4. Prohibido hardcodear credenciales en clientes o repositorio.
-5. No exponer datos sensibles en logs (`Authorization`, llaves privadas).
-
----
-
-## Indicadores minimos
-
-- Latencia p95 por endpoint
-- Error rate 4xx/5xx por minuto
-- Conexiones activas a DB
-- Costo mensual acumulado vs presupuesto
-- Throughput diario de check-ins y pagos
+Si en algún momento se migra a backend propio con MySQL, la política de ownership
+se revisará en ese momento. Ver `knowledge/backend-implementation/` para referencia.

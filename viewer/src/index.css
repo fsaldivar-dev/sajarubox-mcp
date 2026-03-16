@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Apple-style docs typography */
+.apple-docs {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+.apple-docs h1 { font-size: 38px; font-weight: 800; margin-bottom: 24px; letter-spacing: -0.02em; line-height: 1.1; }
+.apple-docs h2 { font-size: 24px; font-weight: 700; margin-top: 52px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(0,0,0,0.08); }
+.dark .apple-docs h2 { border-bottom-color: rgba(255,255,255,0.1); }
+.apple-docs h3 { font-size: 18px; font-weight: 700; margin-top: 32px; margin-bottom: 10px; }
+.apple-docs p { margin-bottom: 1.4em; font-size: 16px; line-height: 1.75; opacity: 0.85; }
+.apple-docs ul, .apple-docs ol { padding-left: 1.5em; margin-bottom: 1.2em; }
+.apple-docs li { font-size: 16px; line-height: 1.7; margin-bottom: 4px; opacity: 0.85; }
+.apple-docs a { color: #0071E3; text-decoration: none; }
+.apple-docs a:hover { text-decoration: underline; }
+.apple-docs hr { border: none; border-top: 1px solid rgba(0,0,0,0.08); margin: 36px 0; }
+.dark .apple-docs hr { border-top-color: rgba(255,255,255,0.1); }
+
+/* Inline code */
+.apple-docs :not(pre) > code {
+  background: rgba(0,0,0,0.06);
+  padding: 2px 7px; border-radius: 6px;
+  color: #E01E5A; font-size: 0.88em;
+  font-family: "SF Mono", Menlo, monospace;
+}
+.dark .apple-docs :not(pre) > code { background: rgba(255,255,255,0.1); color: #FF6B9D; }
+
+/* Blockquote */
+.apple-docs blockquote {
+  background: rgba(0,113,227,0.04);
+  border-radius: 14px; padding: 20px 28px;
+  margin: 32px 0; border-left: 3px solid #0071E3;
+}
+.dark .apple-docs blockquote { background: rgba(0,113,227,0.1); }
+.apple-docs blockquote p { opacity: 1; margin: 0; color: #0071E3; }
+.dark .apple-docs blockquote p { color: #58A6FF; }
+
+/* Tables */
+.apple-docs table { width: 100%; border-collapse: collapse; margin: 24px 0; font-size: 14px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(0,0,0,0.08); }
+.dark .apple-docs table { border-color: rgba(255,255,255,0.1); }
+.apple-docs th { background: rgba(0,0,0,0.04); padding: 10px 16px; font-weight: 600; text-align: left; border-bottom: 1px solid rgba(0,0,0,0.08); }
+.dark .apple-docs th { background: rgba(255,255,255,0.05); border-bottom-color: rgba(255,255,255,0.1); }
+.apple-docs td { padding: 10px 16px; border-bottom: 1px solid rgba(0,0,0,0.04); }
+.dark .apple-docs td { border-bottom-color: rgba(255,255,255,0.05); }
+.apple-docs tr:last-child td { border-bottom: none; }
+.apple-docs tr:hover td { background: rgba(0,0,0,0.02); }
+.dark .apple-docs tr:hover td { background: rgba(255,255,255,0.03); }
+
+/* Code blocks */
+.code-block { background: #161616; border-radius: 14px; margin: 28px 0; overflow: hidden; border: 1px solid #2a2a2a; }
+.code-header { background: #1e1e1e; padding: 10px 18px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2a2a2a; }
+.code-lang { color: #888; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; font-family: "SF Mono", monospace; }
+.code-copy { color: #888; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 7px; border: 1px solid #333; cursor: pointer; background: transparent; transition: all 0.15s; }
+.code-copy:hover { background: #333; color: #fff; border-color: #444; }
+.code-block pre { padding: 20px !important; margin: 0 !important; background: transparent !important; overflow-x: auto; }
+.code-block code { font-family: "SF Mono", Menlo, Courier, monospace !important; font-size: 13.5px !important; line-height: 1.7 !important; }
+
+/* Mermaid */
+.mermaid { background: white; border-radius: 16px; padding: 32px; margin: 32px 0; position: relative; display: flex; justify-content: center; overflow: hidden; border: 1px solid rgba(0,0,0,0.06); min-height: 80px; cursor: grab; user-select: none; }
+.mermaid:active { cursor: grabbing; }
+.dark .mermaid { background: #2C2C2E; border-color: #3D3D3F; }
+
+/* Mermaid zoom controls */
+.mermaid-controls { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; z-index: 10; }
+.mermaid-btn { background: rgba(255,255,255,0.92); border: 1px solid rgba(0,0,0,0.12); border-radius: 8px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 15px; font-weight: 500; transition: all 0.15s; color: #1D1D1F; backdrop-filter: blur(8px); box-shadow: 0 1px 4px rgba(0,0,0,0.1); line-height: 1; padding: 0; }
+.mermaid-btn:hover { background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.18); }
+.dark .mermaid-btn { background: rgba(44,44,46,0.92); border-color: rgba(255,255,255,0.15); color: #F5F5F7; }
+.dark .mermaid-btn:hover { background: #3D3D3F; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 10px; border: 2px solid transparent; background-clip: content-box; }
+.dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); }
+html { scroll-behavior: smooth; }
+
+/* Fade in animation */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.fade-in { animation: fadeIn 0.2s ease; }

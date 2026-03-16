@@ -1,55 +1,42 @@
-# Bridge de Autenticacion (Firebase Auth + Backend)
+# Autenticación con Firebase Auth
 
-> Regla oficial de autenticacion para arquitectura hibrida.
-> Firebase Auth identifica al usuario; backend autoriza operaciones.
-
----
-
-## Decision
-
-- Firebase Authentication permanece para login/registro.
-- Backend valida ID token Firebase en cada request protegida.
-- Backend resuelve usuario interno, rol y permisos desde MySQL.
+> Regla oficial de autenticación para el ecosistema SajaruBox.
+> Firebase Auth es la única fuente de identidad. Los roles se resuelven desde Firestore.
 
 ---
 
-## Flujo canonico
+## Decisión
 
-```mermaid
-flowchart TD
-    loginStart[Usuario inicia sesion] --> firebaseLogin[FirebaseAuth_login_or_register]
-    firebaseLogin --> idToken[Obtener_IDToken]
-    idToken --> apiRequest[Request_API_con_Authorization_Bearer]
-    apiRequest --> verifyToken[Backend_verifica_token_Firebase]
-    verifyToken --> tokenValid{Token_valido}
-    tokenValid -->|No| reject401[Responder_401]
-    tokenValid -->|Si| resolveUser[Resolver_usuario_interno_en_MySQL]
-    resolveUser --> roleCheck[Aplicar_permisos_por_rol]
-    roleCheck --> success200[Procesar_operacion]
+- Firebase Authentication maneja login, registro y sesión.
+- El rol del usuario se almacena y resuelve desde `Firestore/users/{uid}.role`.
+- No existe backend REST propio para validación de tokens.
+
+---
+
+## Flujo canónico (iOS)
+
+```
+Usuario inicia sesión
+  → Firebase Auth (email/Google/Apple)
+  → Obtener IDToken + UID
+  → Leer users/{uid} en Firestore
+  → Resolver rol (admin, receptionist, trainer, member, guest)
+  → Aplicar permisos en UI según rol
 ```
 
----
-
-## Contrato de seguridad
-
-1. Cliente envia `Authorization: Bearer <firebase_id_token>`.
-2. Backend valida firma, expiracion, `issuer`, `audience`, `sub`.
-3. Backend mapea `firebaseUid` a usuario interno.
-4. Si no existe usuario interno, aplica politica de aprovisionamiento.
-5. Backend decide autorizacion final por rol.
+Ver implementación detallada en:
+- `knowledge/ios-implementation/02-auth-flow.md`
+- `knowledge/ios-implementation/03-session-resolver.md`
 
 ---
 
-## Politica de aprovisionamiento (obligatoria)
+## Proveedores activos
 
-| Endpoint/Modulo | Si usuario interno no existe | Resultado |
-|-----------------|------------------------------|-----------|
-| `POST /api/v1/auth/verify-token` | Crear usuario con rol default `member` | `200` |
-| `GET /api/v1/auth/me` | Crear usuario con rol default `member` | `200` |
-| Endpoints administrativos (`members`, `payments`, `membership-*`, `inventory`, `reports`) | No crear automaticamente | `403` o `409` segun conflicto |
-| Endpoints de autoservicio member | Crear solo si politica de onboarding lo permite | `200`/`409` |
-
-Regla: el aprovisionamiento automatico solo aplica en endpoints de identidad/autoservicio controlado.
+| Proveedor | Plataforma | Estado |
+|-----------|-----------|--------|
+| Email/Password | iOS, Android | Activo |
+| Google Sign-In | iOS, Android | Activo |
+| Apple Sign-In | iOS | Activo |
 
 ---
 
@@ -57,45 +44,47 @@ Regla: el aprovisionamiento automatico solo aplica en endpoints de identidad/aut
 
 | Campo | Origen | Uso |
 |------|--------|-----|
-| firebaseUid | Token Firebase (`sub`) | Vinculo primario |
-| email | Token Firebase | Correlacion y contacto |
-| role | MySQL `users.role` | Autorizacion de negocio |
-| linkedMemberId | MySQL | Vinculacion user-member |
+| `uid` | Firebase Auth | Document ID en `users/{uid}` |
+| `email` | Firebase Auth | Correlación y contacto |
+| `role` | Firestore `users.role` | Autorización en UI |
+| `linkedMemberId` | Firestore `users.linkedMemberId` | Vinculación user ↔ member |
 
 ---
 
-## Orden de middlewares
+## Roles disponibles
 
-1. `requestId`
-2. parse y saneo de headers
-3. `authGuard` (verificacion token Firebase)
-4. `userResolver` (mapea `firebaseUid` -> usuario interno)
-5. `rbacGuard`
-6. handler de negocio
+| Rol | Descripción |
+|-----|-------------|
+| `admin` | Acceso total |
+| `receptionist` | Operaciones de recepción (check-in, pagos, miembros) |
+| `trainer` | Clases y rutinas |
+| `member` | Autoservicio |
+| `guest` | Acceso limitado |
+| `visitor` | Solo lectura |
 
----
-
-## Reglas de error
-
-- `401 UNAUTHORIZED`: token invalido, expirado o ausente.
-- `403 FORBIDDEN`: token valido sin permisos de rol.
-- `409 CONFLICT`: conflicto de identidad/vinculacion.
-
-Mensajes al cliente deben ser seguros y sin fuga de informacion sensible.
+Ver permisos detallados en `knowledge/business-rules/02-user-roles.md`.
 
 ---
 
-## Regla de sesiones
+## Reglas de seguridad
 
-- Backend opera stateless validando token por request.
-- Cache de verificacion de llave publica solo en servidor.
-- Si se agrega refresh token propio, no reemplaza validacion Firebase.
+1. Nunca confiar en el rol que envía el cliente — siempre leerlo de Firestore.
+2. Firebase Security Rules restringen escritura según `request.auth.uid`.
+3. El primer usuario registrado se convierte en admin (ver `05-admin-setup.md`).
+4. No exponer `users` privados entre cuentas — cada usuario solo puede leer/editar su propio documento.
 
 ---
 
-## Reglas de migracion
+## Manejo de multi-proveedor
 
-1. Firebase Auth sigue como unica fuente de credenciales.
-2. No migrar ni replicar passwords en MySQL.
-3. Cutover de datos no debe romper login existente.
-4. Cambios en claims/roles deben mantener compatibilidad con apps activas.
+Un mismo email puede tener múltiples UIDs si el usuario usó distintos proveedores.
+iOS gestiona la colección `user_emails` como índice email → UID primario para resolver
+esta colisión. Ver `schema.md` sección `user_emails`.
+
+---
+
+## Migración futura (opcional)
+
+Si se implementa backend REST propio, el flujo cambiaría a:
+Firebase IDToken → API → validación server-side → rol desde MySQL.
+Mientras eso no ocurra, la resolución de rol es directamente desde Firestore en el cliente.

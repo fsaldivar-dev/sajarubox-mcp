@@ -7,7 +7,12 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "web": "node dist/web.js",
+    "dev:web": "tsx src/web.ts",
+    "dev:viewer": "cd viewer && npm run dev",
+    "build:viewer": "cd viewer && npm install && npm run build",
+    "web:custom": "node dist/web.js --path="
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0"
