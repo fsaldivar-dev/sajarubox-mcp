@@ -179,10 +179,25 @@ Ver `business-rules/07-membership-assignments.md` para flujos completos.
 | `linkedUserId` | String | No | FK a `users/{uid}` si tiene cuenta en la app |
 | `registeredBy` | String | Si | `"self"` (auto-registro) o `"admin:{uid}"` (manual) |
 | `familyGroupId` | String | No | ID compartido entre miembros de un grupo familiar |
+| `groupRole` | String | No | Rol dentro del grupo: `owner` (titular) o `dependent` (derivado) |
+| `groupRelationType` | String | No | Relacion del derivado: `family`, `friend`, `other` |
 | `registrationDate` | Timestamp | Si | Fecha de inscripcion |
 | `isActive` | Boolean | Si | Si el miembro esta activo |
 | `createdAt` | Timestamp | Si | Fecha de creacion |
 | `updatedAt` | Timestamp | Si | Fecha de actualizacion |
+
+### Reglas de `groupRole` y `groupRelationType`
+
+1. Si `familyGroupId` es `null`, el miembro puede omitir ambos campos.
+2. Si `familyGroupId` existe:
+   - Debe existir exactamente un `owner` por grupo.
+   - El resto de integrantes se registran como `dependent`.
+3. `groupRelationType` aplica a integrantes `dependent`:
+   - `family`: familiar directo o integrante de familia.
+   - `friend`: acompanante no familiar.
+   - `other`: relacion personalizada.
+4. Para datos legacy sin estos campos:
+   - fallback seguro: miembro se interpreta como `owner` si no hay valor.
 
 ---
 

@@ -287,6 +287,26 @@ flowchart TD
 - Cupo disponible: `maxMembers - count`
 - Color del cupo: verde si hay espacio, rojo si lleno
 
+### Titular y derivados (owner/dependent)
+
+Para planes con cupo grupal, la app distingue rol del integrante dentro del grupo:
+
+- `groupRole = owner`: titular del grupo
+- `groupRole = dependent`: integrante derivado
+- `groupRelationType`: `family`, `friend`, `other` (solo para derivados)
+
+Flujo recomendado en iOS:
+
+1. Registrar titular (`owner`)
+2. Crear o reutilizar `familyGroupId`
+3. Gestionar grupo con acciones:
+   - `Tutor` (captura guiada de responsable)
+   - `Add member` (alta de derivados con plan/grupo heredado)
+4. Validar cupo usando `maxMembers` del snapshot/plan.
+
+Compatibilidad:
+- Registros legacy sin `groupRole` se interpretan con fallback como `owner`.
+
 ---
 
 ## Permisos por rol

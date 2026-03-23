@@ -134,6 +134,21 @@ flowchart TD
 5. Se crea `members/{uuid}` con `linkedUserId = null`
 6. Opcionalmente se asigna un plan de membresia
 
+### Flujo optimizado para planes grupales (titular + derivados)
+
+Cuando el plan tiene `maxMembers > 1`, el flujo recomendado es:
+
+1. Registrar primero al **titular** (`groupRole = owner`)
+2. Crear/asignar `familyGroupId`
+3. Mostrar acciones rapidas de grupo:
+   - `Tutor`: captura/actualiza datos de tutor o responsable
+   - `Add member`: agrega integrantes derivados
+4. Cada integrante agregado por `Add member` se guarda como:
+   - `groupRole = dependent`
+   - `groupRelationType = family | friend | other`
+5. Antes de guardar cada derivado se valida cupo:
+   - `integrantesActivosDelGrupo < maxMembers`
+
 ### Flujo alternativo: posible duplicado
 
 Si ya existe un miembro con el mismo nombre + apellido + telefono:
@@ -380,6 +395,8 @@ Si la fecha de nacimiento indica que el miembro tiene menos de 18 anos, se consi
 |---|---|---|
 | `linkedUserId` | String? | FK a `users/{uid}` si tiene cuenta en la app |
 | `registeredBy` | String | `"self"` si auto-registro, `"admin:{uid}"` si manual |
+| `groupRole` | String | `owner` (titular) o `dependent` (derivado) |
+| `groupRelationType` | String | `family`, `friend`, `other` |
 | `isActive` | Bool | Si el miembro esta activo |
 | `registrationDate` | Date | Fecha de inscripcion |
 | `createdAt` | Date | Fecha de creacion del documento |
@@ -536,3 +553,7 @@ Cuando el miembro tiene membresia activa, la app muestra:
 14. Al crear un Member desde un User, la vinculacion bidireccional (`linkedUserId` / `linkedMemberId`) se establece automaticamente
 15. Si el usuario completo el onboarding, iOS lee `OnboardingData` de Firestore y crea el Member automaticamente (sin formulario)
 16. Si la lectura de `OnboardingData` falla, se hace fallback al formulario pre-llenado con `fullName` y `phone`
+17. Si existe `familyGroupId`, debe existir un solo titular (`groupRole = owner`) en el grupo
+18. Los integrantes adicionales del grupo se registran como derivados (`groupRole = dependent`)
+19. `groupRelationType` permite relaciones no familiares (`friend`) para soportar acompanantes
+20. Datos legacy sin `groupRole` usan fallback operativo como `owner`
