@@ -127,6 +127,37 @@ flowchart TD
 
 ---
 
+## UX eficiente del registro manual (Camino 2)
+
+El **Camino 2** (registro manual por admin) mantiene **los mismos campos y reglas de negocio** (validaciones, mensajes y lógica de guardado), pero cambia el layout para reducir scroll y mejorar la navegación por teclado.
+
+### Adaptacion por tamaño de dispositivo
+
+- **iPhone (compact width)**: `MemberFormView` se muestra como **wizard/stepper** de 3-4 pasos. En cada paso solo se renderizan las secciones correspondientes.
+- **iPad/Mac (regular width)**: `MemberFormView` se muestra como **grilla tipo tabla** de 2 columnas, donde cada fila representa un campo (label a la izquierda y control a la derecha).
+
+### Pasos del wizard (iPhone)
+
+- Paso 1: Datos personales + Contacto (incluye foto si aplica).
+- Paso 2: Nacimiento + Datos del tutor (solo si `isFormMinor`) + Salud.
+- Paso 3: Membresia (seleccion de plan y fecha inicio) + Grupo familiar (solo si el plan es familiar) + Cobro.
+- Paso 4: Resumen final antes de guardar.
+
+### Validacion por paso (wizard)
+
+- El boton **Next/Siguiente** valida **solo los campos visibles del paso actual** y bloquea el avance si hay errores (los mensajes siguen siendo los mismos de `MemberViewModel.validateForm()`).
+- El boton final **Registrar/Guardar** ejecuta la validacion completa antes de guardar.
+
+### Regla de `Enter/Return` (navegacion por teclado)
+
+- Para cada `TextField` editable se configura `.submitLabel(.next)` y un `.onSubmit` que mueve el foco al **siguiente campo editable** segun el orden definido para el layout.
+- Si el usuario presiona `Enter/Return` estando en el **ultimo campo del paso**, se aplica el mismo comportamiento que **Next**:
+  - si el paso es valido, avanza al siguiente paso;
+  - si no es valido, muestra los errores inline y conserva el foco en el campo relevante.
+- En el **ultimo paso**, `Enter/Return` equivale a confirmar (guardar).
+
+---
+
 ## Calculo de fechas por tipo de plan
 
 ```mermaid
