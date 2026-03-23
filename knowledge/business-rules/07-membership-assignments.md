@@ -433,6 +433,27 @@ Cuando un plan tiene `maxMembers > 1`:
 3. Todos los miembros del grupo comparten el snapshot y las fechas de vigencia
 4. El check-in de cualquier miembro del grupo se registra individualmente
 
+### Expiracion y split manual en planes familiares
+
+Cuando un plan familiar expira, el admin puede separar miembros para migrarlos a membresias individuales.
+
+Reglas:
+1. El split SIEMPRE es manual (accion explicita del admin)
+2. Antes de confirmar split, validar guardrail:
+   - Si en el grupo quedan menores, debe permanecer al menos un adulto responsable
+3. Si el split rompe esa regla, bloquear y mostrar mensaje de correccion
+4. El miembro separado sale de `familyGroupId` y queda listo para asignacion individual
+5. El historial de pagos y check-ins se conserva
+
+### Guardrail de menores (obligatorio)
+
+| Escenario | Resultado |
+|---|---|
+| Separar un menor sin tutor/adulto restante | Bloqueado |
+| Separar un adulto y deja menores sin adulto | Bloqueado |
+| Separar un adulto y quedan menores con adulto responsable | Permitido |
+| Separar un adulto en grupo sin menores | Permitido |
+
 ### Errores de planes familiares
 
 | Situacion | Mensaje |

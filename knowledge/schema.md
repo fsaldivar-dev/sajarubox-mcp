@@ -144,6 +144,7 @@ Miembros del gimnasio. No requieren cuenta en la app. Pueden ser creados por el 
 | `otherNotes` | String | No | Otros datos |
 | `birthDate` | Timestamp | No | Fecha de nacimiento |
 | `guardianInfo` | String | No | Datos del tutor (menores) |
+| `guardianGroupId` | String | No | Identificador para agrupar menores con el mismo tutor |
 
 ### Membresia (snapshot inmutable)
 
@@ -198,6 +199,7 @@ Ver `business-rules/07-membership-assignments.md` para flujos completos.
    - `other`: relacion personalizada.
 4. Para datos legacy sin estos campos:
    - fallback seguro: miembro se interpreta como `owner` si no hay valor.
+5. Si se usa `guardianGroupId`, se recomienda scope por `familyGroupId` para evitar colisiones entre familias.
 
 ---
 

@@ -149,6 +149,21 @@ Cuando el plan tiene `maxMembers > 1`, el flujo recomendado es:
 5. Antes de guardar cada derivado se valida cupo:
    - `integrantesActivosDelGrupo < maxMembers`
 
+### Flujo workspace familiar (sin modal principal)
+
+Para operacion de recepcion, el alta familiar se realiza en una vista de workspace:
+
+1. Registrar titular/tutor en panel principal
+2. Configurar plan y metodo de pago
+3. Gestionar derivados con `Add member` dentro del mismo workspace
+4. Revisar resumen de unidad familiar y guardar
+
+Reglas de este flujo:
+- El titular se registra como `groupRole = owner`
+- Los hijos/derivados se registran como `groupRole = dependent`
+- El tutor puede no entrenar, pero debe mantener la tutela operativa del grupo
+- El flujo evita dejar menores sin un adulto responsable dentro del grupo
+
 ### Flujo alternativo: posible duplicado
 
 Si ya existe un miembro con el mismo nombre + apellido + telefono:
@@ -397,6 +412,7 @@ Si la fecha de nacimiento indica que el miembro tiene menos de 18 anos, se consi
 | `registeredBy` | String | `"self"` si auto-registro, `"admin:{uid}"` si manual |
 | `groupRole` | String | `owner` (titular) o `dependent` (derivado) |
 | `groupRelationType` | String | `family`, `friend`, `other` |
+| `guardianGroupId` | String | Identificador lógico para relacionar menores con el mismo tutor |
 | `isActive` | Bool | Si el miembro esta activo |
 | `registrationDate` | Date | Fecha de inscripcion |
 | `createdAt` | Date | Fecha de creacion del documento |
@@ -557,3 +573,5 @@ Cuando el miembro tiene membresia activa, la app muestra:
 18. Los integrantes adicionales del grupo se registran como derivados (`groupRole = dependent`)
 19. `groupRelationType` permite relaciones no familiares (`friend`) para soportar acompanantes
 20. Datos legacy sin `groupRole` usan fallback operativo como `owner`
+21. El split de un miembro familiar es manual por admin; si la operacion deja menores sin adulto responsable, el sistema debe bloquearla
+22. Los menores pueden compartir tutor usando `guardianGroupId` para trazabilidad y consistencia operativa
